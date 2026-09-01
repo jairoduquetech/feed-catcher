@@ -58,20 +58,18 @@ struct SidebarView: View {
 
     @ViewBuilder
     private var categoriesSection: some View {
-        if !categories.isEmpty {
-            Section {
-                ForEach(categories) { cat in
-                    SidebarCategoryRow(
-                        category: cat,
-                        selection: $selection,
-                        collapsedCategories: $collapsedCategories,
-                        movingFeed: $movingFeed,
-                        editingCategory: $editingCategory
-                    )
-                }
-            } header: {
-                categoriesSectionHeader
+        Section {
+            ForEach(categories) { cat in
+                SidebarCategoryRow(
+                    category: cat,
+                    selection: $selection,
+                    collapsedCategories: $collapsedCategories,
+                    movingFeed: $movingFeed,
+                    editingCategory: $editingCategory
+                )
             }
+        } header: {
+            categoriesSectionHeader
         }
     }
 
@@ -138,19 +136,6 @@ struct SidebarView: View {
 
             // ── Feeds sin categoría ──────────────────────────────────────────
             feedsSection
-
-            // Botón + si no hay categorías y no hay feeds
-            if categories.isEmpty && feeds.isEmpty {
-                Section("CARPETAS") {
-                    Button {
-                        showAddCategory = true
-                    } label: {
-                        Label("Nueva carpeta", systemImage: "folder.badge.plus")
-                            .foregroundStyle(Color.accentColor)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
         }
         .listStyle(.sidebar)
         .toolbar {
