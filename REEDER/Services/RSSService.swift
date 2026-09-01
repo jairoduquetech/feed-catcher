@@ -54,28 +54,35 @@ actor RSSService {
 
     func fetchFeed(urlString: String) async throws -> ParsedFeed {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let initialURL = URL(string: trimmed) else { throw RSSError.invalidURL }
+        guard !trimmed.isEmpty else { throw RSSError.invalidURL }
 
-        do {
-            return try await performFetch(url: initialURL, sourceURL: trimmed)
-        } catch {
-            if trimmed.hasPrefix("http://") {
-                let secureStr = "https://" + trimmed.dropFirst("http://".count)
-                if let secureURL = URL(string: secureStr) {
-                    if let result = try? await performFetch(url: secureURL, sourceURL: secureStr) {
-                        return result
-                    }
-                }
-            } else if trimmed.hasPrefix("https://") {
-                let httpStr = "http://" + trimmed.dropFirst("https://".count)
-                if let httpURL = URL(string: httpStr) {
-                    if let result = try? await performFetch(url: httpURL, sourceURL: httpStr) {
-                        return result
-                    }
-                }
-            }
-            throw error
+        // Proactivamente preferir HTTPS para evitar bloqueos de App Transport Security
+        var urlsToTry: [String] = []
+
+        if trimmed.hasPrefix("http://") {
+            let secureStr = "https://" + trimmed.dropFirst("http://".count)
+            urlsToTry.append(secureStr)
+            urlsToTry.append(trimmed)
+        } else if trimmed.hasPrefix("https://") {
+            urlsToTry.append(trimmed)
+            let insecureStr = "http://" + trimmed.dropFirst("https://".count)
+            urlsToTry.append(insecureStr)
+        } else {
+            urlsToTry.append("https://" + trimmed)
+            urlsToTry.append("http://" + trimmed)
         }
+
+        var lastError: Error = RSSError.invalidURL
+        for candidate in urlsToTry {
+            guard let url = URL(string: candidate) else { continue }
+            do {
+                return try await performFetch(url: url, sourceURL: candidate)
+            } catch {
+                lastError = error
+            }
+        }
+
+        throw lastError
     }
 
     private func performFetch(url: URL, sourceURL: String) async throws -> ParsedFeed {

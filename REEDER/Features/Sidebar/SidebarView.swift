@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 // ──────────────────────────────────────────────────────────────────────────────
 // SidebarItem — Enum para la selección de la barra lateral
@@ -100,8 +101,6 @@ struct SidebarView: View {
         Section {
             ForEach(feedsWithoutCategory) { feed in
                 FeedRowView(feed: feed, isSelected: selection == .feed(feed.id))
-                    .contentShape(Rectangle())
-                    .onTapGesture { selection = .feed(feed.id) }
                     .tag(SidebarItem.feed(feed.id))
                     .contextMenu { feedContextMenu(for: feed) }
             }
@@ -109,14 +108,16 @@ struct SidebarView: View {
         } header: {
             Text(label)
         }
-        .dropDestination(for: String.self) { items, _ in
-            guard let idString = items.first, let feedUUID = UUID(uuidString: idString) else { return false }
-            removeFeedFromCategory(feedUUID)
-            return true
-        } isTargeted: { targeted in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isUncategorizedTargeted = targeted
+        .onDrop(of: [UTType.text.identifier, UTType.plainText.identifier, "public.text"], isTargeted: $isUncategorizedTargeted) { providers in
+            guard let provider = providers.first else { return false }
+            _ = provider.loadObject(ofClass: NSString.self) { string, _ in
+                if let string = string as? String, let uuid = UUID(uuidString: string) {
+                    DispatchQueue.main.async {
+                        removeFeedFromCategory(uuid)
+                    }
+                }
             }
+            return true
         }
     }
 
@@ -132,8 +133,6 @@ struct SidebarView: View {
                     count: totalUnreadCount,
                     isSelected: selection == .all
                 )
-                .contentShape(Rectangle())
-                .onTapGesture { selection = .all }
                 .tag(SidebarItem.all)
 
                 SidebarSmartRow(
@@ -143,8 +142,6 @@ struct SidebarView: View {
                     count: 0,
                     isSelected: selection == .favorites
                 )
-                .contentShape(Rectangle())
-                .onTapGesture { selection = .favorites }
                 .tag(SidebarItem.favorites)
             }
 
@@ -223,7 +220,8 @@ struct SidebarView: View {
     // MARK: - Drag and Drop Helper
 
     private func removeFeedFromCategory(_ id: UUID) {
-        if let feed = feeds.first(where: { $0.id == id }) {
+        let descriptor = FetchDescriptor<Feed>(predicate: #Predicate { $0.id == id })
+        if let feeds = try? modelContext.fetch(descriptor), let feed = feeds.first {
             feed.category = nil
             try? modelContext.save()
         }
@@ -365,7 +363,14 @@ struct SidebarCategoryRow: View {
             category: category,
             selection: $selection,
             collapsed: collapsed,
-            movingFeed: $movingFeed
+            movingFeed: $movingFeed,
+            onToggleCollapse: {
+                if collapsedCategories.contains(category.id) {
+                    collapsedCategories.remove(category.id)
+                } else {
+                    collapsedCategories.insert(category.id)
+                }
+            }
         )
         .contextMenu {
             Button {
@@ -378,13 +383,6 @@ struct SidebarCategoryRow: View {
                 deleteCategory()
             } label: {
                 Label("Eliminar carpeta", systemImage: "trash")
-            }
-        }
-        .onTapGesture {
-            if collapsedCategories.contains(category.id) {
-                collapsedCategories.remove(category.id)
-            } else {
-                collapsedCategories.insert(category.id)
             }
         }
     }
@@ -406,6 +404,7 @@ struct CategorySectionView: View {
     @Binding var selection: SidebarItem
     let collapsed: Bool
     @Binding var movingFeed: Feed?
+    let onToggleCollapse: () -> Void
 
     @Environment(\.modelContext) private var modelContext
     @State private var isDropTarget: Bool = false
@@ -445,14 +444,16 @@ struct CategorySectionView: View {
                         .background(categoryColor, in: Capsule())
                 }
 
-                Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 12)
+                Button(action: onToggleCollapse) {
+                    Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.vertical, 4)
             .padding(.horizontal, 4)
-            .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(
@@ -466,27 +467,22 @@ struct CategorySectionView: View {
                     .stroke(isDropTarget ? categoryColor : Color.clear, lineWidth: 1.5)
             )
             .tag(SidebarItem.category(category.id))
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    selection = .category(category.id)
+            .onDrop(of: [UTType.text.identifier, UTType.plainText.identifier, "public.text"], isTargeted: $isDropTarget) { providers in
+                guard let provider = providers.first else { return false }
+                _ = provider.loadObject(ofClass: NSString.self) { string, _ in
+                    if let string = string as? String, let uuid = UUID(uuidString: string) {
+                        DispatchQueue.main.async {
+                            moveFeed(withID: uuid, to: category)
+                        }
+                    }
                 }
-            )
-            .dropDestination(for: String.self) { items, _ in
-                guard let idString = items.first, let feedUUID = UUID(uuidString: idString) else { return false }
-                moveFeed(withID: feedUUID, to: category)
                 return true
-            } isTargeted: { targeted in
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    isDropTarget = targeted
-                }
             }
 
             // Feeds de esta categoría (si no está colapsada)
             if !collapsed {
                 ForEach(category.feeds.sorted(by: { $0.addedDate < $1.addedDate })) { feed in
                     FeedRowView(feed: feed, isSelected: selection == .feed(feed.id), indented: true)
-                        .contentShape(Rectangle())
-                        .onTapGesture { selection = .feed(feed.id) }
                         .tag(SidebarItem.feed(feed.id))
                         .contextMenu {
                             Button {
@@ -585,21 +581,8 @@ struct FeedRowView: View {
             }
         }
         .padding(.vertical, 3)
-        .draggable(feed.id.uuidString) {
-            HStack(spacing: 8) {
-                FaviconView(url: feed.resolvedFaviconURL, size: 16)
-                Text(feed.title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.primary)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+        .onDrag {
+            NSItemProvider(object: feed.id.uuidString as NSString)
         }
     }
 }
