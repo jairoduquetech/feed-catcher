@@ -21,7 +21,7 @@ enum SidebarItem: Hashable, Identifiable {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// SidebarView v7 — Vistas inteligentes + Carpetas colapsables + Feeds sin categoría
+// SidebarView v8 — Carpetas con Drag & Drop + Vistas inteligentes + Feeds
 // ──────────────────────────────────────────────────────────────────────────────
 struct SidebarView: View {
     @Environment(\.modelContext) private var modelContext
@@ -38,6 +38,7 @@ struct SidebarView: View {
     @State private var importError: String? = nil
     @State private var importSuccess: String? = nil
     @State private var collapsedCategories: Set<UUID> = []
+    @State private var isUncategorizedTargeted: Bool = false
 
     init(selection: Binding<SidebarItem>, showAddFeed: Binding<Bool>) {
         self._selection = selection
@@ -95,17 +96,26 @@ struct SidebarView: View {
 
     @ViewBuilder
     private var feedsSection: some View {
-        if !feedsWithoutCategory.isEmpty {
-            let label = categories.isEmpty ? "FEEDS" : "SIN CARPETA"
-            Section(label) {
-                ForEach(feedsWithoutCategory) { feed in
-                    FeedRowView(feed: feed, isSelected: selection == .feed(feed.id))
-                        .contentShape(Rectangle())
-                        .onTapGesture { selection = .feed(feed.id) }
-                        .tag(SidebarItem.feed(feed.id))
-                        .contextMenu { feedContextMenu(for: feed) }
-                }
-                .onDelete { offsets in deleteFeeds(from: feedsWithoutCategory, at: offsets) }
+        let label = categories.isEmpty ? "FEEDS" : "SIN CARPETA"
+        Section {
+            ForEach(feedsWithoutCategory) { feed in
+                FeedRowView(feed: feed, isSelected: selection == .feed(feed.id))
+                    .contentShape(Rectangle())
+                    .onTapGesture { selection = .feed(feed.id) }
+                    .tag(SidebarItem.feed(feed.id))
+                    .contextMenu { feedContextMenu(for: feed) }
+            }
+            .onDelete { offsets in deleteFeeds(from: feedsWithoutCategory, at: offsets) }
+        } header: {
+            Text(label)
+        }
+        .dropDestination(for: String.self) { items, _ in
+            guard let idString = items.first, let feedUUID = UUID(uuidString: idString) else { return false }
+            removeFeedFromCategory(feedUUID)
+            return true
+        } isTargeted: { targeted in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isUncategorizedTargeted = targeted
             }
         }
     }
@@ -138,7 +148,7 @@ struct SidebarView: View {
                 .tag(SidebarItem.favorites)
             }
 
-            // ── Categorías ───────────────────────────────────────────────────
+            // ── Categorías (Carpetas) ─────────────────────────────────────────
             categoriesSection
 
             // ── Feeds sin categoría ──────────────────────────────────────────
@@ -210,22 +220,12 @@ struct SidebarView: View {
         .animation(.easeInOut, value: importError)
     }
 
-    // MARK: - Category Context Menu
+    // MARK: - Drag and Drop Helper
 
-    @ViewBuilder
-    private func categoryContextMenu(for category: FeedCategory) -> some View {
-        Button {
-            editingCategory = category
-        } label: {
-            Label("Editar carpeta", systemImage: "pencil")
-        }
-
-        Divider()
-
-        Button(role: .destructive) {
-            deleteCategory(category)
-        } label: {
-            Label("Eliminar carpeta", systemImage: "trash")
+    private func removeFeedFromCategory(_ id: UUID) {
+        if let feed = feeds.first(where: { $0.id == id }) {
+            feed.category = nil
+            try? modelContext.save()
         }
     }
 
@@ -283,16 +283,7 @@ struct SidebarView: View {
 
     // MARK: - Acciones
 
-    private func toggleCollapse(_ category: FeedCategory) {
-        if collapsedCategories.contains(category.id) {
-            collapsedCategories.remove(category.id)
-        } else {
-            collapsedCategories.insert(category.id)
-        }
-    }
-
     private func deleteCategory(_ category: FeedCategory) {
-        // Los feeds pasan a "Sin categoría" gracias a deleteRule: .nullify
         if case .category(let id) = selection, id == category.id {
             selection = .all
         }
@@ -356,7 +347,6 @@ struct SidebarView: View {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// ──────────────────────────────────────────────────────────────────────────────
 // SidebarCategoryRow — Wrapper self-contained para evitar problemas de type-checking
 // ──────────────────────────────────────────────────────────────────────────────
 struct SidebarCategoryRow: View {
@@ -409,7 +399,7 @@ struct SidebarCategoryRow: View {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// CategorySectionView — Fila de categoría colapsable con sus feeds adentro
+// CategorySectionView — Fila de categoría colapsable y destino de Drop
 // ──────────────────────────────────────────────────────────────────────────────
 struct CategorySectionView: View {
     let category: FeedCategory
@@ -418,21 +408,25 @@ struct CategorySectionView: View {
     @Binding var movingFeed: Feed?
 
     @Environment(\.modelContext) private var modelContext
+    @State private var isDropTarget: Bool = false
 
     private var unreadCount: Int { category.unreadCount }
+    private var categoryColor: Color {
+        Color(hex: category.colorHex) ?? Color.gray
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Cabecera de la categoría (clicable para expandir/colapsar y seleccionar)
+            // Cabecera de la categoría (clicable para seleccionar y destino de drop)
             HStack(spacing: 8) {
                 // Ícono de la categoría con su color
                 ZStack {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color(hex: category.colorHex)?.opacity(0.2) ?? Color.gray.opacity(0.2))
+                        .fill(categoryColor.opacity(0.2))
                         .frame(width: 22, height: 22)
                     Image(systemName: category.icon)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: category.colorHex) ?? .gray)
+                        .foregroundStyle(categoryColor)
                 }
 
                 Text(category.name)
@@ -448,7 +442,7 @@ struct CategorySectionView: View {
                         .foregroundStyle(.black)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color(hex: category.colorHex) ?? .accentColor, in: Capsule())
+                        .background(categoryColor, in: Capsule())
                 }
 
                 Image(systemName: collapsed ? "chevron.right" : "chevron.down")
@@ -457,11 +451,19 @@ struct CategorySectionView: View {
                     .frame(width: 12)
             }
             .padding(.vertical, 4)
+            .padding(.horizontal, 4)
             .contentShape(Rectangle())
             .background(
-                selection == .category(category.id)
-                    ? (Color(hex: category.colorHex) ?? .accentColor).opacity(0.1)
-                    : Color.clear
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(
+                        isDropTarget
+                            ? categoryColor.opacity(0.25)
+                            : (selection == .category(category.id) ? categoryColor.opacity(0.12) : Color.clear)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(isDropTarget ? categoryColor : Color.clear, lineWidth: 1.5)
             )
             .tag(SidebarItem.category(category.id))
             .simultaneousGesture(
@@ -469,6 +471,15 @@ struct CategorySectionView: View {
                     selection = .category(category.id)
                 }
             )
+            .dropDestination(for: String.self) { items, _ in
+                guard let idString = items.first, let feedUUID = UUID(uuidString: idString) else { return false }
+                moveFeed(withID: feedUUID, to: category)
+                return true
+            } isTargeted: { targeted in
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isDropTarget = targeted
+                }
+            }
 
             // Feeds de esta categoría (si no está colapsada)
             if !collapsed {
@@ -494,6 +505,14 @@ struct CategorySectionView: View {
                         }
                 }
             }
+        }
+    }
+
+    private func moveFeed(withID id: UUID, to category: FeedCategory) {
+        let descriptor = FetchDescriptor<Feed>(predicate: #Predicate { $0.id == id })
+        if let feeds = try? modelContext.fetch(descriptor), let feed = feeds.first {
+            feed.category = category
+            try? modelContext.save()
         }
     }
 }
@@ -531,7 +550,7 @@ private struct SidebarSmartRow: View {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// FeedRowView — Fila de feed con favicon y contador
+// FeedRowView — Fila de feed arrastrable (Draggable) con favicon y contador
 // ──────────────────────────────────────────────────────────────────────────────
 struct FeedRowView: View {
     let feed: Feed
@@ -566,5 +585,21 @@ struct FeedRowView: View {
             }
         }
         .padding(.vertical, 3)
+        .draggable(feed.id.uuidString) {
+            HStack(spacing: 8) {
+                FaviconView(url: feed.resolvedFaviconURL, size: 16)
+                Text(feed.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+        }
     }
 }
