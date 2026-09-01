@@ -26,7 +26,7 @@ struct AddFeedView: View {
             HStack {
                 Text("Añadir Feed")
                     .font(.title2.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(.primary)
                 Spacer()
                 // Botón destacado de importar desde Reeder
                 Button {
@@ -36,7 +36,7 @@ struct AddFeedView: View {
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Color.accentColor.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
+                        .background(Color.accentColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
                         .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.plain)
@@ -53,95 +53,95 @@ struct AddFeedView: View {
                     .font(.caption)
                 Text("En Reeder 4: Ajustes → Tus datos → Exportar OPML")
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.35))
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 14)
 
-            Divider().background(.white.opacity(0.06))
+            Divider()
                 .padding(.bottom, 14)
 
-            VStack(alignment: .leading, spacing: 14) {
-                // Entrada de URL
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("O AÑADE UN FEED POR URL")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.3))
-                        .tracking(0.5)
+        VStack(alignment: .leading, spacing: 14) {
+            // Entrada de URL
+            VStack(alignment: .leading, spacing: 6) {
+                Text("O AÑADE UN FEED POR URL")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .tracking(0.5)
 
-                    HStack {
-                        TextField("https://ejemplo.com/feed.xml", text: $urlText)
-                            .textFieldStyle(.plain)
-                            .foregroundStyle(.white)
-                            .font(.body.monospaced())
-                            .onSubmit { Task { await preview() } }
-                        if isLoading {
-                            ProgressView().scaleEffect(0.7)
-                        }
-                    }
-                    .padding(10)
-                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
-                }
-
-                // Nombre del feed
-                if didPreview {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("NOMBRE DEL FEED")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.3))
-                            .tracking(0.5)
-                        TextField("Mi Feed", text: $feedTitle)
-                            .textFieldStyle(.plain)
-                            .foregroundStyle(.white)
-                            .padding(10)
-                            .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
-                    }
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-
-                if let error = errorMessage {
-                    Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.red.opacity(0.8))
-                }
-
-                // Feeds sugeridos
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("SUGERIDOS")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.3))
-                        .tracking(0.5)
-
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
-                        ForEach(SuggestedFeed.all, id: \.url) { s in
-                            SuggestedFeedCell(suggestion: s) {
-                                urlText = s.url
-                                feedTitle = s.title
-                                didPreview = true
-                                errorMessage = nil
-                            }
-                        }
+                HStack {
+                    TextField("https://ejemplo.com/feed.xml", text: $urlText)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(.primary)
+                        .font(.body.monospaced())
+                        .onSubmit { Task { await preview() } }
+                    if isLoading {
+                        ProgressView().scaleEffect(0.7)
                     }
                 }
+                .padding(10)
+                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
             }
-            .padding(.horizontal, 20)
-            .animation(.easeInOut(duration: 0.15), value: didPreview)
 
-            Spacer()
+            // Nombre del feed
+            if didPreview {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("NOMBRE DEL FEED")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .tracking(0.5)
+                    TextField("Mi Feed", text: $feedTitle)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(.primary)
+                        .padding(10)
+                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
 
-            // Resultado de importación
-            if let result = importResult {
-                Label(result, systemImage: "checkmark.circle.fill")
+            if let error = errorMessage {
+                Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
-                    .foregroundStyle(.green)
-                    .padding(.horizontal, 20)
+                    .foregroundStyle(.red.opacity(0.8))
             }
 
-            // Botones inferiores
-            HStack {
-                Button("Cancelar") { dismiss() }
-                    .foregroundStyle(.white.opacity(0.5))
-                    .keyboardShortcut(.escape)
+            // Feeds sugeridos
+            VStack(alignment: .leading, spacing: 6) {
+                Text("SUGERIDOS")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .tracking(0.5)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                    ForEach(SuggestedFeed.all, id: \.url) { s in
+                        SuggestedFeedCell(suggestion: s) {
+                            urlText = s.url
+                            feedTitle = s.title
+                            didPreview = true
+                            errorMessage = nil
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .animation(.easeInOut(duration: 0.15), value: didPreview)
+
+        Spacer()
+
+        // Resultado de importación
+        if let result = importResult {
+            Label(result, systemImage: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.green)
+                .padding(.horizontal, 20)
+        }
+
+        // Botones inferiores
+        HStack {
+            Button("Cancelar") { dismiss() }
+                .foregroundStyle(.secondary)
+                .keyboardShortcut(.escape)
 
                 Spacer()
 
@@ -162,7 +162,7 @@ struct AddFeedView: View {
             .padding(20)
         }
         .frame(width: 460, height: 500)
-        .background(Color(red: 0.13, green: 0.13, blue: 0.13))
+        .background(Color(nsColor: .windowBackgroundColor))
         .fileImporter(
             isPresented: $showOPMLImport,
             allowedContentTypes: [.init(filenameExtension: "opml") ?? .xml, .xml],
@@ -239,24 +239,29 @@ struct AddFeedView: View {
 // ──────────────────────────────────────────────────────────────────────────────
 private struct SuggestedFeedCell: View {
     let suggestion: SuggestedFeed
-    let onTap: () -> Void
+    let action: () -> Void
+
+    @State private var isHovered = false
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 3) {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(suggestion.title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .lineLimit(1)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
                 Text(suggestion.category)
-                    .font(.caption2)
-                    .foregroundStyle(Color.accentColor.opacity(0.7))
+                    .font(.caption)
+                    .foregroundStyle(Color.accentColor)
             }
+            .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(8)
-            .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+            .background(
+                Color.primary.opacity(isHovered ? 0.08 : 0.04),
+                in: RoundedRectangle(cornerRadius: 8)
+            )
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }
 

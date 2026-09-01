@@ -59,14 +59,21 @@ struct SidebarView: View {
     @ViewBuilder
     private var categoriesSection: some View {
         Section {
-            ForEach(categories) { cat in
-                SidebarCategoryRow(
-                    category: cat,
-                    selection: $selection,
-                    collapsedCategories: $collapsedCategories,
-                    movingFeed: $movingFeed,
-                    editingCategory: $editingCategory
-                )
+            if categories.isEmpty {
+                Text("No hay carpetas")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+            } else {
+                ForEach(categories) { cat in
+                    SidebarCategoryRow(
+                        category: cat,
+                        selection: $selection,
+                        collapsedCategories: $collapsedCategories,
+                        movingFeed: $movingFeed,
+                        editingCategory: $editingCategory
+                    )
+                }
             }
         } header: {
             categoriesSectionHeader
