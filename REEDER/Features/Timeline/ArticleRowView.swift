@@ -24,11 +24,18 @@ struct ArticleRowView: View {
                 // Línea superior: Nombre del feed + Hora/Fecha
                 HStack(spacing: 4) {
                     if let feedTitle = article.feed?.title {
-                        Text(feedTitle.uppercased())
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(Color.accentColor)
-                            .lineLimit(1)
-                            .tracking(0.3)
+                        HStack(spacing: 3) {
+                            if article.isYouTubeVideo {
+                                Image(systemName: "play.rectangle.fill")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.red)
+                            }
+                            Text(feedTitle.uppercased())
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(article.isYouTubeVideo ? Color.red.opacity(0.9) : Color.accentColor)
+                                .lineLimit(1)
+                                .tracking(0.3)
+                        }
                     }
 
                     Spacer(minLength: 4)
@@ -62,22 +69,37 @@ struct ArticleRowView: View {
 
             // ── 3. Miniatura rápida en caché (68x68) ─────────────────────────
             if settings.showThumbnails, let imgURL = article.imageURL, !imgURL.isEmpty {
-                CachedAsyncImageView(
-                    urlString: imgURL,
-                    targetSize: CGSize(width: 68, height: 68)
-                ) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 68, height: 68)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .opacity(article.isRead ? 0.6 : 1.0)
-                } placeholder: {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.secondary.opacity(0.08))
-                        .frame(width: 68, height: 68)
+                ZStack(alignment: .bottomTrailing) {
+                    CachedAsyncImageView(
+                        urlString: imgURL,
+                        targetSize: CGSize(width: 68, height: 68)
+                    ) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 68, height: 68)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .opacity(article.isRead ? 0.6 : 1.0)
+                    } placeholder: {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.secondary.opacity(0.08))
+                            .frame(width: 68, height: 68)
+                    }
+                    .frame(width: 68, height: 68)
+
+                    if article.isYouTubeVideo {
+                        ZStack {
+                            Circle()
+                                .fill(Color.black.opacity(0.75))
+                                .frame(width: 18, height: 18)
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundStyle(.white)
+                                .offset(x: 0.5)
+                        }
+                        .padding(4)
+                    }
                 }
-                .frame(width: 68, height: 68)
             }
         }
         .padding(.vertical, settings.compactRowDensity ? 5 : 8)

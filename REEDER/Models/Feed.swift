@@ -24,9 +24,17 @@ final class Feed {
         self.articles = []
     }
 
+    /// Detecta si es un feed de canal de YouTube
+    var isYouTubeFeed: Bool {
+        url.contains("youtube.com/feeds/videos.xml")
+    }
+
     /// Best-effort favicon URL using DuckDuckGo's favicon service
     var resolvedFaviconURL: String? {
         if let existing = faviconURL, !existing.isEmpty { return existing }
+        if isYouTubeFeed {
+            return "https://icons.duckduckgo.com/ip3/youtube.com.ico"
+        }
         let base = siteURL ?? url
         guard let host = URL(string: base)?.host else { return nil }
         return "https://icons.duckduckgo.com/ip3/\(host).ico"

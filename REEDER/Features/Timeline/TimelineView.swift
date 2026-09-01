@@ -51,6 +51,7 @@ struct TimelineView: View {
         switch selection {
         case .all:              return "Todos los artículos"
         case .favorites:        return "Favoritos"
+        case .videos:           return "Videos de YouTube"
         case .category:         return selectedCategory?.name ?? "Carpeta"
         case .feed:             return selectedFeed?.title ?? "Feed"
         }
@@ -77,6 +78,8 @@ struct TimelineView: View {
             break
         case .favorites:
             result = result.filter { $0.isFavorite }
+        case .videos:
+            result = result.filter { $0.isYouTubeVideo }
         case .category(let catID):
             if let category = categories.first(where: { $0.id == catID }) {
                 let feedIDs = Set(category.feeds.map(\.id))
@@ -242,7 +245,9 @@ struct TimelineView: View {
         switch filter {
         case .favorites: return "star"
         case .unread:    return "envelope.open"
-        default:         return selection == .all ? "newspaper" : "tray"
+        default:
+            if case .videos = selection { return "play.rectangle" }
+            return selection == .all ? "newspaper" : "tray"
         }
     }
 
@@ -253,10 +258,11 @@ struct TimelineView: View {
         case .unread:    return "¡Estás al día!"
         default:
             switch selection {
-            case .all:      return feeds.isEmpty ? "No hay feeds aún" : "No hay artículos"
+            case .all:       return feeds.isEmpty ? "No hay feeds aún" : "No hay artículos"
             case .favorites: return "No hay favoritos todavía"
-            case .category: return "Esta carpeta no tiene artículos"
-            case .feed:     return "No hay artículos en este feed"
+            case .videos:    return "No hay videos de YouTube aún"
+            case .category:  return "Esta carpeta no tiene artículos"
+            case .feed:      return "No hay artículos en este feed"
             }
         }
     }
@@ -266,7 +272,9 @@ struct TimelineView: View {
         switch filter {
         case .favorites: return "Marca artículos con estrella para verlos aquí"
         case .unread:    return "Has leído todo el contenido"
-        default:         return feeds.isEmpty ? "Añade un feed con el botón +" : "Actualiza (⌘R) para cargar noticias"
+        default:
+            if case .videos = selection { return "Añade canales de YouTube con el botón +" }
+            return feeds.isEmpty ? "Añade un feed con el botón +" : "Actualiza (⌘R) para cargar noticias"
         }
     }
 

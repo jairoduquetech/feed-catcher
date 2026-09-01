@@ -2,8 +2,7 @@ import SwiftUI
 import SwiftData
 
 // ──────────────────────────────────────────────────────────────────────────────
-// AddFeedView v4 (Español)
-// Modal para añadir feeds individuales o importar desde Reeder 4
+// AddFeedView v5 — Añadir Feeds RSS y Canales de YouTube con resolución de @handles
 // ──────────────────────────────────────────────────────────────────────────────
 
 struct AddFeedView: View {
@@ -11,6 +10,12 @@ struct AddFeedView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Feed.addedDate) private var existingFeeds: [Feed]
 
+    enum FeedTypeTab: String, CaseIterable {
+        case websites = "Webs & Blogs"
+        case youtube = "YouTube"
+    }
+
+    @State private var selectedTab: FeedTypeTab = .websites
     @State private var urlText = ""
     @State private var feedTitle = ""
     @State private var isLoading = false
@@ -22,17 +27,19 @@ struct AddFeedView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Cabecera
+            // ── Cabecera ─────────────────────────────────────────────────────
             HStack {
-                Text("Añadir Feed")
+                Text(selectedTab == .youtube ? "Añadir Canal de YouTube" : "Añadir Feed RSS")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.primary)
+
                 Spacer()
+
                 // Botón destacado de importar desde Reeder
                 Button {
                     showOPMLImport = true
                 } label: {
-                    Label("Importar de Reeder 4", systemImage: "square.and.arrow.down.fill")
+                    Label("Importar OPML", systemImage: "square.and.arrow.down.fill")
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -40,128 +47,138 @@ struct AddFeedView: View {
                         .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.plain)
-                .help("Importa tus suscripciones de Reeder 4 u otro lector RSS en archivo OPML")
+                .help("Importa tus suscripciones en archivo OPML")
             }
             .padding(.horizontal, 20)
             .padding(.top, 20)
-            .padding(.bottom, 16)
+            .padding(.bottom, 14)
 
-            // Instrucción rápida para Reeder 4
-            HStack(spacing: 6) {
-                Image(systemName: "info.circle")
-                    .foregroundStyle(Color.accentColor.opacity(0.7))
-                    .font(.caption)
-                Text("En Reeder 4: Ajustes → Tus datos → Exportar OPML")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            // Selector de tipo (Web vs YouTube)
+            Picker("Tipo de suscripción", selection: $selectedTab) {
+                ForEach(FeedTypeTab.allCases, id: \.self) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
             }
+            .pickerStyle(.segmented)
             .padding(.horizontal, 20)
             .padding(.bottom, 14)
+            .onChange(of: selectedTab) { _, _ in
+                errorMessage = nil
+            }
 
             Divider()
                 .padding(.bottom, 14)
 
-        VStack(alignment: .leading, spacing: 14) {
-            // Entrada de URL
-            VStack(alignment: .leading, spacing: 6) {
-                Text("O AÑADE UN FEED POR URL")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .tracking(0.5)
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 16) {
 
-                HStack {
-                    TextField("https://ejemplo.com/feed.xml", text: $urlText)
-                        .textFieldStyle(.plain)
-                        .foregroundStyle(.primary)
-                        .font(.body.monospaced())
-                        .onSubmit { Task { await preview() } }
-                    if isLoading {
-                        ProgressView().scaleEffect(0.7)
-                    }
-                }
-                .padding(10)
-                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
-            }
+                    // ── Entrada de URL / Handle ──────────────────────────────
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(selectedTab == .youtube ? "HANDLE O ENLACE DEL CANAL" : "URL DEL FEED O SITIO WEB")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .tracking(0.5)
 
-            // Nombre del feed
-            if didPreview {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("NOMBRE DEL FEED")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .tracking(0.5)
-                    TextField("Mi Feed", text: $feedTitle)
-                        .textFieldStyle(.plain)
-                        .foregroundStyle(.primary)
+                        HStack {
+                            if selectedTab == .youtube {
+                                Image(systemName: "play.rectangle.fill")
+                                    .foregroundStyle(.red)
+                                    .font(.system(size: 14))
+                            }
+
+                            TextField(
+                                selectedTab == .youtube ? "@mkbhd o https://youtube.com/@midudev" : "https://ejemplo.com/feed.xml",
+                                text: $urlText
+                            )
+                            .textFieldStyle(.plain)
+                            .foregroundStyle(.primary)
+                            .font(.body.monospaced())
+                            .onSubmit { Task { await preview() } }
+
+                            if isLoading {
+                                ProgressView().scaleEffect(0.7)
+                            }
+                        }
                         .padding(10)
                         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
-                }
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
+                    }
 
-            if let error = errorMessage {
-                Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.red.opacity(0.8))
-            }
-
-            // Feeds sugeridos
-            VStack(alignment: .leading, spacing: 6) {
-                Text("SUGERIDOS")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .tracking(0.5)
-
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
-                    ForEach(SuggestedFeed.all, id: \.url) { s in
-                        SuggestedFeedCell(suggestion: s) {
-                            urlText = s.url
-                            feedTitle = s.title
-                            didPreview = true
-                            errorMessage = nil
+                    // ── Nombre del feed previsualizado ───────────────────────
+                    if didPreview {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("NOMBRE DE LA SUSCRIPCIÓN")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .tracking(0.5)
+                            TextField("Nombre", text: $feedTitle)
+                                .textFieldStyle(.plain)
+                                .foregroundStyle(.primary)
+                                .padding(10)
+                                .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
                         }
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    // Mensaje de error
+                    if let error = errorMessage {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.red.opacity(0.85))
+                    }
+
+                    // ── Sugerencias según pestaña seleccionada ───────────────
+                    if selectedTab == .youtube {
+                        youtubeSuggestionsSection
+                    } else {
+                        websiteSuggestionsSection
                     }
                 }
-            }
-        }
-        .padding(.horizontal, 20)
-        .animation(.easeInOut(duration: 0.15), value: didPreview)
-
-        Spacer()
-
-        // Resultado de importación
-        if let result = importResult {
-            Label(result, systemImage: "checkmark.circle.fill")
-                .font(.caption)
-                .foregroundStyle(.green)
                 .padding(.horizontal, 20)
-        }
+            }
+            .animation(.easeInOut(duration: 0.15), value: didPreview)
+            .animation(.easeInOut(duration: 0.15), value: selectedTab)
 
-        // Botones inferiores
-        HStack {
-            Button("Cancelar") { dismiss() }
-                .foregroundStyle(.secondary)
-                .keyboardShortcut(.escape)
+            Spacer()
+
+            // Resultado de importación
+            if let result = importResult {
+                Label(result, systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 6)
+            }
+
+            Divider()
+
+            // ── Botones inferiores ───────────────────────────────────────────
+            HStack {
+                Button("Cancelar") { dismiss() }
+                    .foregroundStyle(.secondary)
+                    .keyboardShortcut(.escape)
 
                 Spacer()
 
                 if !didPreview {
-                    Button("Previsualizar Feed") {
+                    Button(selectedTab == .youtube ? "Buscar Canal" : "Previsualizar Feed") {
                         Task { await preview() }
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(urlText.trimmingCharacters(in: .whitespaces).isEmpty || isLoading)
                     .keyboardShortcut(.return)
                 } else {
-                    Button("Añadir Feed") { addFeed() }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(feedTitle.trimmingCharacters(in: .whitespaces).isEmpty)
-                        .keyboardShortcut(.return)
+                    Button(selectedTab == .youtube ? "Seguir Canal" : "Añadir Feed") {
+                        addFeed()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(feedTitle.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .keyboardShortcut(.return)
                 }
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
         }
-        .frame(width: 460, height: 500)
+        .frame(width: 480, height: 540)
         .background(Color(nsColor: .windowBackgroundColor))
         .fileImporter(
             isPresented: $showOPMLImport,
@@ -172,17 +189,76 @@ struct AddFeedView: View {
         }
     }
 
+    // MARK: - Secciones de sugerencias
+
+    @ViewBuilder
+    private var websiteSuggestionsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SITIOS WEB POPULARES")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .tracking(0.5)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                ForEach(SuggestedFeed.all, id: \.url) { s in
+                    SuggestedFeedCell(suggestion: s) {
+                        urlText = s.url
+                        feedTitle = s.title
+                        didPreview = true
+                        errorMessage = nil
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var youtubeSuggestionsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("CANALES DE YOUTUBE POPULARES")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .tracking(0.5)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                ForEach(SuggestedYouTubeChannel.popular) { channel in
+                    SuggestedYouTubeCell(channel: channel) {
+                        urlText = channel.rssURL
+                        feedTitle = channel.name
+                        didPreview = true
+                        errorMessage = nil
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Previsualizar
 
     private func preview() async {
-        let trimmed = urlText.trimmingCharacters(in: .whitespaces)
+        let trimmed = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
+
+        var targetURL = trimmed
+
+        // Si es consulta de YouTube o estamos en la pestaña de YouTube
+        if selectedTab == .youtube || YouTubeService.isYouTubeQuery(trimmed) {
+            if let resolved = await YouTubeService.shared.resolveToRSS(query: trimmed) {
+                targetURL = resolved
+            } else if !trimmed.contains("youtube.com/feeds/videos.xml") {
+                errorMessage = "No se pudo encontrar el canal de YouTube. Prueba con el handle (ej: @mkbhd) o la URL del canal."
+                didPreview = false
+                return
+            }
+        }
+
         do {
-            let parsed = try await RSSService.shared.fetchFeed(urlString: trimmed)
+            let parsed = try await RSSService.shared.fetchFeed(urlString: targetURL)
             feedTitle = parsed.title
+            urlText = targetURL
             didPreview = true
         } catch {
             errorMessage = error.localizedDescription
@@ -193,7 +269,7 @@ struct AddFeedView: View {
     // MARK: - Añadir feed individual
 
     private func addFeed() {
-        let url = urlText.trimmingCharacters(in: .whitespaces)
+        let url = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty, !feedTitle.isEmpty else { return }
         let feed = Feed(title: feedTitle, url: url)
         modelContext.insert(feed)
@@ -245,15 +321,70 @@ private struct SuggestedFeedCell: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(suggestion.title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
+                    .lineLimit(1)
                 Text(suggestion.category)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundStyle(Color.accentColor)
             }
-            .padding(12)
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                Color.primary.opacity(isHovered ? 0.08 : 0.04),
+                in: RoundedRectangle(cornerRadius: 8)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// SuggestedYouTubeCell
+// ──────────────────────────────────────────────────────────────────────────────
+private struct SuggestedYouTubeCell: View {
+    let channel: SuggestedYouTubeChannel
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.red.opacity(0.15))
+                        .frame(width: 28, height: 28)
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.red)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(channel.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text(channel.handle)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text("•")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary.opacity(0.5))
+                        Text(channel.category)
+                            .font(.caption2)
+                            .foregroundStyle(.red.opacity(0.85))
+                    }
+                    .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 Color.primary.opacity(isHovered ? 0.08 : 0.04),

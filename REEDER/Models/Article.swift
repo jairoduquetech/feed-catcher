@@ -35,4 +35,16 @@ final class Article {
         self.isFavorite = false
         self.feed = feed
     }
+
+    /// Extrae el ID del video si el artículo proviene de YouTube
+    var youtubeVideoID: String? {
+        YouTubeService.extractVideoID(from: articleURL)
+    }
+
+    /// Determina si este artículo es un video de YouTube
+    var isYouTubeVideo: Bool {
+        if youtubeVideoID != nil { return true }
+        if let feedURL = feed?.url, feedURL.contains("youtube.com/feeds/videos.xml") { return true }
+        return articleURL.contains("youtube.com/watch") || articleURL.contains("youtu.be/")
+    }
 }

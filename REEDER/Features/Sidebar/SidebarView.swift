@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 enum SidebarItem: Hashable, Identifiable {
     case all
     case favorites
+    case videos
     case category(UUID)
     case feed(UUID)
 
@@ -15,6 +16,7 @@ enum SidebarItem: Hashable, Identifiable {
         switch self {
         case .all:              return "all"
         case .favorites:        return "favorites"
+        case .videos:           return "videos"
         case .category(let id): return "cat-\(id.uuidString)"
         case .feed(let id):     return id.uuidString
         }
@@ -51,6 +53,12 @@ struct SidebarView: View {
     private var totalUnreadCount: Int {
         feeds.reduce(0) { sum, feed in
             sum + feed.articles.filter { !$0.isRead }.count
+        }
+    }
+
+    private var totalUnreadVideosCount: Int {
+        feeds.reduce(0) { sum, feed in
+            sum + feed.articles.filter { $0.isYouTubeVideo && !$0.isRead }.count
         }
     }
 
@@ -155,6 +163,15 @@ struct SidebarView: View {
                     isSelected: selection == .favorites
                 )
                 .tag(SidebarItem.favorites)
+
+                SidebarSmartRow(
+                    icon: "play.rectangle.fill",
+                    iconColor: .red,
+                    label: "Videos",
+                    count: totalUnreadVideosCount,
+                    isSelected: selection == .videos
+                )
+                .tag(SidebarItem.videos)
             }
 
             // ── Categorías (Carpetas) ─────────────────────────────────────────

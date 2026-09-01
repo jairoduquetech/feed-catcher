@@ -95,7 +95,9 @@ struct ArticleDetailView: View {
 
     @ViewBuilder
     private var rssContent: some View {
-        if let html = article.content, !html.isEmpty {
+        if let videoID = article.youtubeVideoID {
+            YouTubeArticleDetailView(article: article, videoID: videoID, settings: settings)
+        } else if let html = article.content, !html.isEmpty {
             ReaderWebView(
                 html: html,
                 baseURLString: article.articleURL,
@@ -513,3 +515,101 @@ extension Date {
         return df.string(from: self).uppercased()
     }
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// YouTubeArticleDetailView — Reproductor de video y descripción de YouTube
+// ──────────────────────────────────────────────────────────────────────────────
+private struct YouTubeArticleDetailView: View {
+    let article: Article
+    let videoID: String
+    let settings: AppSettings
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Reproductor de YouTube embebido (16:9)
+            YouTubePlayerWebView(videoID: videoID)
+                .frame(minHeight: 440)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
+
+            // Barra de acciones del video
+            HStack(spacing: 12) {
+                Button {
+                    if let url = URL(string: "https://www.youtube.com/watch?v=\(videoID)") {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    Label("Ver en YouTube", systemImage: "play.rectangle.fill")
+                        .font(.callout.weight(.medium))
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString("https://www.youtube.com/watch?v=\(videoID)", forType: .string)
+                } label: {
+                    Label("Copiar enlace", systemImage: "link")
+                        .font(.callout.weight(.medium))
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(.top, 4)
+
+            // Descripción del video
+            if let desc = article.summary ?? article.content, !desc.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("DESCRIPCIÓN DEL VIDEO")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .tracking(0.6)
+
+                    Text(desc)
+                        .font(.system(size: CGFloat(max(13, settings.fontSize - 1))))
+                        .foregroundStyle(Color.primary.opacity(0.88))
+                        .lineSpacing(6)
+                        .textSelection(.enabled)
+                }
+                .padding(.top, 10)
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.vertical, 20)
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// YouTubePlayerWebView — Embebe el reproductor oficial de YouTube sin cookies
+// ──────────────────────────────────────────────────────────────────────────────
+struct YouTubePlayerWebView: NSViewRepresentable {
+    let videoID: String
+
+    func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.allowsAirPlayForMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = []
+        let wv = WKWebView(frame: .zero, configuration: config)
+        wv.setValue(false, forKey: "drawsBackground")
+        return wv
+    }
+
+    func updateNSView(_ wv: WKWebView, context: Context) {
+        let embedHTML = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          html, body { width: 100%; height: 100%; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+          iframe { width: 100%; height: 100%; border: none; }
+        </style>
+        </head>
+        <body>
+          <iframe src="https://www.youtube-nocookie.com/embed/\(videoID)?autoplay=0&rel=0&playsinline=1&modestbranding=1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
+        </body>
+        </html>
+        """
+        wv.loadHTMLString(embedHTML, baseURL: URL(string: "https://www.youtube.com"))
+    }
+}
+
