@@ -5,7 +5,7 @@ import SwiftData
 struct REEDERApp: App {
 
     @State private var modelContainer: ModelContainer = {
-        let schema = Schema([Feed.self, Article.self])
+        let schema = Schema([Feed.self, Article.self, FeedCategory.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         return try! ModelContainer(for: schema, configurations: config)
     }()
@@ -29,7 +29,7 @@ struct REEDERApp: App {
                     NSApplication.shared.orderFrontStandardAboutPanel(
                         options: [
                             NSApplication.AboutPanelOptionKey.applicationName: "Feed Catcher",
-                            NSApplication.AboutPanelOptionKey.version: "1.3"
+                            NSApplication.AboutPanelOptionKey.version: "1.4"
                         ]
                     )
                 }

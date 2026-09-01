@@ -23,6 +23,9 @@
 		A014 /* FeedRefreshService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F014 /* FeedRefreshService.swift */; };
 		A015 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F015 /* SettingsView.swift */; };
 		A016 /* ImageCacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F016 /* ImageCacheService.swift */; };
+		A017 /* FeedCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F017 /* FeedCategory.swift */; };
+		A018 /* AddCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F018 /* AddCategoryView.swift */; };
+		A019 /* MoveToCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F019 /* MoveToCategoryView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,6 +45,9 @@
 		F014 /* FeedRefreshService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedRefreshService.swift; sourceTree = "<group>"; };
 		F015 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F016 /* ImageCacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageCacheService.swift; sourceTree = "<group>"; };
+		F017 /* FeedCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedCategory.swift; sourceTree = "<group>"; };
+		F018 /* AddCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCategoryView.swift; sourceTree = "<group>"; };
+		F019 /* MoveToCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveToCategoryView.swift; sourceTree = "<group>"; };
 		FAPP /* REEDER.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = REEDER.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -91,6 +97,7 @@
 			children = (
 				F003 /* Feed.swift */,
 				F004 /* Article.swift */,
+				F017 /* FeedCategory.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -120,6 +127,8 @@
 			isa = PBXGroup;
 			children = (
 				F006 /* SidebarView.swift */,
+				F018 /* AddCategoryView.swift */,
+				F019 /* MoveToCategoryView.swift */,
 			);
 			path = Sidebar;
 			sourceTree = "<group>";
@@ -236,6 +245,9 @@
 				A014 /* FeedRefreshService.swift in Sources */,
 				A015 /* SettingsView.swift in Sources */,
 				A016 /* ImageCacheService.swift in Sources */,
+				A017 /* FeedCategory.swift in Sources */,
+				A018 /* AddCategoryView.swift in Sources */,
+				A019 /* MoveToCategoryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -364,7 +376,7 @@
 				CODE_SIGN_ENTITLEMENTS = REEDER/REEDER.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_ASSET_PATHS = "\"REEDER/Preview Content\"";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -375,7 +387,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jairo.feedcatcher;
 				PRODUCT_NAME = "Feed Catcher";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -392,7 +404,7 @@
 				CODE_SIGN_ENTITLEMENTS = REEDER/REEDER.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_ASSET_PATHS = "\"REEDER/Preview Content\"";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -403,7 +415,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
-				MARKETING_VERSION = 1.3;
+				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jairo.feedcatcher;
 				PRODUCT_NAME = "Feed Catcher";
 				SWIFT_EMIT_LOC_STRINGS = YES;

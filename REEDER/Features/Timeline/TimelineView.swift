@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 // ──────────────────────────────────────────────────────────────────────────────
-// TimelineView v6 (Adaptable a Modo Claro/Oscuro + Rendimiento)
+// TimelineView v7 (Categorías + Adaptable a Modo Claro/Oscuro + Rendimiento)
 // ──────────────────────────────────────────────────────────────────────────────
 
 enum ArticleFilter: String, CaseIterable, Identifiable {
@@ -23,6 +23,7 @@ struct TimelineView: View {
     @State private var errorMessage: String?
 
     @Query(sort: \Feed.addedDate) private var feeds: [Feed]
+    @Query(sort: \FeedCategory.sortOrder) private var categories: [FeedCategory]
     @Query(sort: \Article.publishDate, order: .reverse) private var allArticles: [Article]
 
     init(selection: SidebarItem, selectedArticle: Binding<Article?>) {
@@ -39,14 +40,19 @@ struct TimelineView: View {
         return nil
     }
 
+    private var selectedCategory: FeedCategory? {
+        if case .category(let id) = selection {
+            return categories.first(where: { $0.id == id })
+        }
+        return nil
+    }
+
     private var navigationTitle: String {
         switch selection {
-        case .all:
-            return "Todos los artículos"
-        case .favorites:
-            return "Favoritos"
-        case .feed:
-            return selectedFeed?.title ?? "Feed"
+        case .all:              return "Todos los artículos"
+        case .favorites:        return "Favoritos"
+        case .category:         return selectedCategory?.name ?? "Carpeta"
+        case .feed:             return selectedFeed?.title ?? "Feed"
         }
     }
 
@@ -71,6 +77,8 @@ struct TimelineView: View {
             break
         case .favorites:
             result = result.filter { $0.isFavorite }
+        case .category(let catID):
+            result = result.filter { $0.feed?.category?.id == catID }
         case .feed(let feedID):
             result = result.filter { $0.feed?.id == feedID }
         }
@@ -237,9 +245,10 @@ struct TimelineView: View {
         case .unread:    return "¡Estás al día!"
         default:
             switch selection {
-            case .all: return feeds.isEmpty ? "No hay feeds aún" : "No hay artículos"
+            case .all:      return feeds.isEmpty ? "No hay feeds aún" : "No hay artículos"
             case .favorites: return "No hay favoritos todavía"
-            case .feed: return "No hay artículos en este feed"
+            case .category: return "Esta carpeta no tiene artículos"
+            case .feed:     return "No hay artículos en este feed"
             }
         }
     }
@@ -260,6 +269,8 @@ struct TimelineView: View {
         let feedsToRefresh: [Feed]
         if let feed = selectedFeed {
             feedsToRefresh = [feed]
+        } else if let category = selectedCategory {
+            feedsToRefresh = category.feeds
         } else {
             feedsToRefresh = feeds
         }
