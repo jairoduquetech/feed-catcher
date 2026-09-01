@@ -8,7 +8,8 @@ import UniformTypeIdentifiers
 enum SidebarItem: Hashable, Identifiable {
     case all
     case favorites
-    case videos
+    case allVideos
+    case allPodcasts
     case category(UUID)
     case feed(UUID)
 
@@ -16,7 +17,8 @@ enum SidebarItem: Hashable, Identifiable {
         switch self {
         case .all:              return "all"
         case .favorites:        return "favorites"
-        case .videos:           return "videos"
+        case .allVideos:        return "all-videos"
+        case .allPodcasts:      return "all-podcasts"
         case .category(let id): return "cat-\(id.uuidString)"
         case .feed(let id):     return id.uuidString
         }
@@ -24,7 +26,7 @@ enum SidebarItem: Hashable, Identifiable {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// SidebarView v9 — Selección fluida + Carpetas + Feeds + Drag & Drop nativo
+// SidebarView v10 — Secciones Exclusivas: Noticias, YouTube y Podcasts
 // ──────────────────────────────────────────────────────────────────────────────
 struct SidebarView: View {
     @Environment(\.modelContext) private var modelContext
@@ -50,21 +52,45 @@ struct SidebarView: View {
 
     private var refreshService = FeedRefreshService.shared
 
-    private var totalUnreadCount: Int {
-        feeds.reduce(0) { sum, feed in
+    // ── Clasificación de Feeds ───────────────────────────────────────────────
+
+    private var regularFeeds: [Feed] {
+        feeds.filter { $0.isRegularArticleFeed }
+    }
+
+    private var regularFeedsWithoutCategory: [Feed] {
+        regularFeeds.filter { $0.category == nil }
+    }
+
+    private var youtubeFeeds: [Feed] {
+        feeds.filter { $0.isYouTubeFeed }
+    }
+
+    private var podcastFeeds: [Feed] {
+        feeds.filter { $0.isPodcastFeed }
+    }
+
+    // ── Contadores de No Leídos ─────────────────────────────────────────────
+
+    private var totalArticlesUnreadCount: Int {
+        regularFeeds.reduce(0) { sum, feed in
             sum + feed.articles.filter { !$0.isRead }.count
         }
     }
 
-    private var totalUnreadVideosCount: Int {
-        feeds.reduce(0) { sum, feed in
-            sum + feed.articles.filter { $0.isYouTubeVideo && !$0.isRead }.count
+    private var totalYouTubeUnreadCount: Int {
+        youtubeFeeds.reduce(0) { sum, feed in
+            sum + feed.articles.filter { !$0.isRead }.count
         }
     }
 
-    private var feedsWithoutCategory: [Feed] {
-        feeds.filter { $0.category == nil }
+    private var totalPodcastsUnreadCount: Int {
+        podcastFeeds.reduce(0) { sum, feed in
+            sum + feed.articles.filter { !$0.isRead }.count
+        }
     }
+
+    // ── Secciones de la Barra Lateral ────────────────────────────────────────
 
     @ViewBuilder
     private var categoriesSection: some View {
@@ -76,7 +102,7 @@ struct SidebarView: View {
                     .padding(.vertical, 4)
             } else {
                 ForEach(categories) { category in
-                    // 1. Fila de la Carpeta (Direct child of List for selection & drop)
+                    // 1. Fila de la Carpeta
                     CategoryHeaderRow(
                         category: category,
                         isSelected: selection == .category(category.id),
@@ -87,9 +113,9 @@ struct SidebarView: View {
                     .tag(SidebarItem.category(category.id))
                     .contextMenu { categoryContextMenu(for: category) }
 
-                    // 2. Feeds dentro de la carpeta (Direct children of List for selection & drag)
+                    // 2. Feeds dentro de la carpeta (solo regulares de lectura)
                     if !collapsedCategories.contains(category.id) {
-                        ForEach(category.feeds.sorted(by: { $0.addedDate < $1.addedDate })) { feed in
+                        ForEach(category.feeds.filter { $0.isRegularArticleFeed }.sorted(by: { $0.addedDate < $1.addedDate })) { feed in
                             FeedRowView(feed: feed, isSelected: selection == .feed(feed.id), indented: true)
                                 .tag(SidebarItem.feed(feed.id))
                                 .contextMenu { feedContextMenu(for: feed) }
@@ -116,15 +142,15 @@ struct SidebarView: View {
     }
 
     @ViewBuilder
-    private var feedsSection: some View {
-        let label = categories.isEmpty ? "FEEDS" : "SIN CARPETA"
+    private var regularFeedsSection: some View {
+        let label = categories.isEmpty ? "FEEDS DE NOTICIAS" : "SIN CARPETA"
         Section {
-            ForEach(feedsWithoutCategory) { feed in
+            ForEach(regularFeedsWithoutCategory) { feed in
                 FeedRowView(feed: feed, isSelected: selection == .feed(feed.id))
                     .tag(SidebarItem.feed(feed.id))
                     .contextMenu { feedContextMenu(for: feed) }
             }
-            .onDelete { offsets in deleteFeeds(from: feedsWithoutCategory, at: offsets) }
+            .onDelete { offsets in deleteFeeds(from: regularFeedsWithoutCategory, at: offsets) }
         } header: {
             Text(label)
         }
@@ -141,16 +167,82 @@ struct SidebarView: View {
         }
     }
 
+    @ViewBuilder
+    private var youtubeSection: some View {
+        Section {
+            // Fila inteligente: Todos los videos
+            SidebarSmartRow(
+                icon: "play.rectangle.fill",
+                iconColor: .red,
+                label: "Todos los videos",
+                count: totalYouTubeUnreadCount,
+                isSelected: selection == .allVideos
+            )
+            .tag(SidebarItem.allVideos)
+
+            // Canales de YouTube individuales
+            ForEach(youtubeFeeds) { feed in
+                FeedRowView(feed: feed, isSelected: selection == .feed(feed.id))
+                    .tag(SidebarItem.feed(feed.id))
+                    .contextMenu { feedContextMenu(for: feed) }
+            }
+            .onDelete { offsets in deleteFeeds(from: youtubeFeeds, at: offsets) }
+        } header: {
+            HStack {
+                Text("YOUTUBE")
+                Spacer()
+                Button { showAddFeed = true } label: {
+                    Image(systemName: "plus").font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.red)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var podcastsSection: some View {
+        Section {
+            // Fila inteligente: Todos los episodios
+            SidebarSmartRow(
+                icon: "waveform",
+                iconColor: .purple,
+                label: "Todos los episodios",
+                count: totalPodcastsUnreadCount,
+                isSelected: selection == .allPodcasts
+            )
+            .tag(SidebarItem.allPodcasts)
+
+            // Podcasts seguidos individuales
+            ForEach(podcastFeeds) { feed in
+                FeedRowView(feed: feed, isSelected: selection == .feed(feed.id))
+                    .tag(SidebarItem.feed(feed.id))
+                    .contextMenu { feedContextMenu(for: feed) }
+            }
+            .onDelete { offsets in deleteFeeds(from: podcastFeeds, at: offsets) }
+        } header: {
+            HStack {
+                Text("PODCASTS")
+                Spacer()
+                Button { showAddFeed = true } label: {
+                    Image(systemName: "plus").font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.purple)
+            }
+        }
+    }
+
     var body: some View {
         List(selection: $selection) {
 
-            // ── Vistas Inteligentes ───────────────────────────────────────────
-            Section("VISTAS INTELIGENTES") {
+            // ── 1. Vistas Inteligentes de Artículos ───────────────────────────
+            Section("NOTICIAS & ARTÍCULOS") {
                 SidebarSmartRow(
                     icon: "tray.2.fill",
                     iconColor: .accentColor,
                     label: "Todos los artículos",
-                    count: totalUnreadCount,
+                    count: totalArticlesUnreadCount,
                     isSelected: selection == .all
                 )
                 .tag(SidebarItem.all)
@@ -163,22 +255,19 @@ struct SidebarView: View {
                     isSelected: selection == .favorites
                 )
                 .tag(SidebarItem.favorites)
-
-                SidebarSmartRow(
-                    icon: "play.rectangle.fill",
-                    iconColor: .red,
-                    label: "Videos",
-                    count: totalUnreadVideosCount,
-                    isSelected: selection == .videos
-                )
-                .tag(SidebarItem.videos)
             }
 
-            // ── Categorías (Carpetas) ─────────────────────────────────────────
+            // ── 2. Carpetas de Artículos ─────────────────────────────────────
             categoriesSection
 
-            // ── Feeds sin categoría ──────────────────────────────────────────
-            feedsSection
+            // ── 3. Feeds de Noticias sin Carpeta ─────────────────────────────
+            regularFeedsSection
+
+            // ── 4. Sección Exclusiva: YOUTUBE ────────────────────────────────
+            youtubeSection
+
+            // ── 5. Sección Exclusiva: PODCASTS ───────────────────────────────
+            podcastsSection
         }
         .listStyle(.sidebar)
         .toolbar {
@@ -210,7 +299,7 @@ struct SidebarView: View {
                 Button { showAddFeed = true } label: {
                     Image(systemName: "plus")
                 }
-                .help("Añadir feed (⌘N)")
+                .help("Añadir feed, canal o podcast (⌘N)")
             }
         }
         .navigationTitle("Feed Catcher")
@@ -253,7 +342,6 @@ struct SidebarView: View {
         if let feeds = try? modelContext.fetch(descriptor), let feed = feeds.first {
             feed.category = category
             try? modelContext.save()
-            // Auto expand category so the user sees the dropped item
             collapsedCategories.remove(category.id)
         }
     }
@@ -266,7 +354,7 @@ struct SidebarView: View {
         }
     }
 
-    // MARK: - Category Context Menu
+    // MARK: - Context Menus
 
     @ViewBuilder
     private func categoryContextMenu(for category: FeedCategory) -> some View {
@@ -285,22 +373,21 @@ struct SidebarView: View {
         }
     }
 
-    // MARK: - Feed Context Menu
-
     @ViewBuilder
     private func feedContextMenu(for feed: Feed) -> some View {
-        Button {
-            movingFeed = feed
-        } label: {
-            Label("Mover a carpeta…", systemImage: "folder")
+        if feed.isRegularArticleFeed {
+            Button {
+                movingFeed = feed
+            } label: {
+                Label("Mover a carpeta…", systemImage: "folder")
+            }
+            Divider()
         }
-
-        Divider()
 
         Button(role: .destructive) {
             deleteFeed(feed)
         } label: {
-            Label("Eliminar feed", systemImage: "trash")
+            Label(feed.isYouTubeFeed ? "Eliminar canal" : (feed.isPodcastFeed ? "Eliminar podcast" : "Eliminar feed"), systemImage: "trash")
         }
     }
 
@@ -411,7 +498,7 @@ struct SidebarView: View {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// CategoryHeaderRow — Fila de cabecera de carpeta (clicable para ver noticias y destino de Drop)
+// CategoryHeaderRow — Fila de cabecera de carpeta
 // ──────────────────────────────────────────────────────────────────────────────
 struct CategoryHeaderRow: View {
     let category: FeedCategory
@@ -422,14 +509,18 @@ struct CategoryHeaderRow: View {
 
     @State private var isDropTarget: Bool = false
 
-    private var unreadCount: Int { category.unreadCount }
+    private var unreadCount: Int {
+        category.feeds.filter { $0.isRegularArticleFeed }.reduce(0) { sum, feed in
+            sum + feed.articles.filter { !$0.isRead }.count
+        }
+    }
+
     private var categoryColor: Color {
         Color(hex: category.colorHex) ?? Color.gray
     }
 
     var body: some View {
         HStack(spacing: 8) {
-            // Ícono de la categoría con su color
             ZStack {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(categoryColor.opacity(0.2))
@@ -490,7 +581,7 @@ struct CategoryHeaderRow: View {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// SidebarSmartRow — Fila de vista inteligente (Todos / Favoritos)
+// SidebarSmartRow — Fila de vista inteligente
 // ──────────────────────────────────────────────────────────────────────────────
 private struct SidebarSmartRow: View {
     let icon: String
@@ -522,7 +613,7 @@ private struct SidebarSmartRow: View {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// FeedRowView — Fila de feed arrastrable (Draggable) con favicon y contador
+// FeedRowView — Fila de feed arrastrable con favicon y contador
 // ──────────────────────────────────────────────────────────────────────────────
 struct FeedRowView: View {
     let feed: Feed
@@ -538,7 +629,20 @@ struct FeedRowView: View {
             if indented {
                 Spacer().frame(width: 14)
             }
-            FaviconView(url: feed.resolvedFaviconURL, size: 16)
+
+            if feed.isYouTubeFeed {
+                Image(systemName: "play.rectangle.fill")
+                    .foregroundStyle(.red)
+                    .font(.system(size: 14))
+                    .frame(width: 16)
+            } else if feed.isPodcastFeed {
+                Image(systemName: "waveform")
+                    .foregroundStyle(.purple)
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 16)
+            } else {
+                FaviconView(url: feed.resolvedFaviconURL, size: 16)
+            }
 
             Text(feed.title)
                 .lineLimit(1)
@@ -548,12 +652,13 @@ struct FeedRowView: View {
             Spacer()
 
             if unreadCount > 0 {
+                let badgeColor: Color = feed.isYouTubeFeed ? .red : (feed.isPodcastFeed ? .purple : .accentColor)
                 Text("\(unreadCount)")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.accentColor, in: Capsule())
+                    .background(badgeColor, in: Capsule())
             }
         }
         .padding(.vertical, 3)

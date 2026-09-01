@@ -27,6 +27,9 @@
 		A018 /* AddCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F018 /* AddCategoryView.swift */; };
 		A019 /* MoveToCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F019 /* MoveToCategoryView.swift */; };
 		A020 /* YouTubeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F020 /* YouTubeService.swift */; };
+		A021 /* AudioPlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F021 /* AudioPlayerService.swift */; };
+		A022 /* PodcastService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F022 /* PodcastService.swift */; };
+		A023 /* MiniPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F023 /* MiniPlayerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,6 +53,9 @@
 		F018 /* AddCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddCategoryView.swift; sourceTree = "<group>"; };
 		F019 /* MoveToCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveToCategoryView.swift; sourceTree = "<group>"; };
 		F020 /* YouTubeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeService.swift; sourceTree = "<group>"; };
+		F021 /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerService.swift; sourceTree = "<group>"; };
+		F022 /* PodcastService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PodcastService.swift; sourceTree = "<group>"; };
+		F023 /* MiniPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniPlayerView.swift; sourceTree = "<group>"; };
 		FAPP /* REEDER.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = REEDER.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -112,6 +118,8 @@
 				F014 /* FeedRefreshService.swift */,
 				F016 /* ImageCacheService.swift */,
 				F020 /* YouTubeService.swift */,
+				F021 /* AudioPlayerService.swift */,
+				F022 /* PodcastService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -158,6 +166,7 @@
 			children = (
 				F010 /* AddFeedView.swift */,
 				F015 /* SettingsView.swift */,
+				F023 /* MiniPlayerView.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -252,6 +261,9 @@
 				A018 /* AddCategoryView.swift in Sources */,
 				A019 /* MoveToCategoryView.swift in Sources */,
 				A020 /* YouTubeService.swift in Sources */,
+				A021 /* AudioPlayerService.swift in Sources */,
+				A022 /* PodcastService.swift in Sources */,
+				A023 /* MiniPlayerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -380,7 +392,7 @@
 				CODE_SIGN_ENTITLEMENTS = REEDER/REEDER.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_ASSET_PATHS = "\"REEDER/Preview Content\"";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -391,7 +403,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
-				MARKETING_VERSION = 1.5;
+				MARKETING_VERSION = 1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jairo.feedcatcher;
 				PRODUCT_NAME = "Feed Catcher";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -408,7 +420,7 @@
 				CODE_SIGN_ENTITLEMENTS = REEDER/REEDER.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEVELOPMENT_ASSET_PATHS = "\"REEDER/Preview Content\"";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -419,7 +431,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
-				MARKETING_VERSION = 1.5;
+				MARKETING_VERSION = 1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.jairo.feedcatcher;
 				PRODUCT_NAME = "Feed Catcher";
 				SWIFT_EMIT_LOC_STRINGS = YES;

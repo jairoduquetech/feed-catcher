@@ -95,7 +95,9 @@ struct ArticleDetailView: View {
 
     @ViewBuilder
     private var rssContent: some View {
-        if let videoID = article.youtubeVideoID {
+        if let audioURL = article.audioURL, !audioURL.isEmpty {
+            PodcastArticleDetailView(article: article, audioURL: audioURL, settings: settings)
+        } else if let videoID = article.youtubeVideoID {
             YouTubeArticleDetailView(article: article, videoID: videoID, settings: settings)
         } else if let html = article.content, !html.isEmpty {
             ReaderWebView(
@@ -610,6 +612,204 @@ struct YouTubePlayerWebView: NSViewRepresentable {
         </html>
         """
         wv.loadHTMLString(embedHTML, baseURL: URL(string: "https://www.youtube.com"))
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PodcastArticleDetailView — Reproductor de episodio y notas del podcast
+// ──────────────────────────────────────────────────────────────────────────────
+private struct PodcastArticleDetailView: View {
+    let article: Article
+    let audioURL: String
+    let settings: AppSettings
+    @State private var player = AudioPlayerService.shared
+
+    private var isCurrentEpisodePlaying: Bool {
+        player.currentAudioURLString == audioURL && player.isPlaying
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            // Tarjeta de reproducción principal
+            VStack(spacing: 16) {
+                HStack(spacing: 16) {
+                    // Carátula del episodio
+                    ZStack {
+                        if let img = article.imageURL, !img.isEmpty {
+                            CachedAsyncImageView(urlString: img, targetSize: CGSize(width: 80, height: 80)) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                RoundedRectangle(cornerRadius: 10).fill(Color.purple.opacity(0.15))
+                            }
+                        } else {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.purple.opacity(0.2))
+                            Image(systemName: "waveform")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundStyle(.purple)
+                        }
+                    }
+                    .frame(width: 80, height: 80)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 2)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(article.title)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+
+                        if let feedTitle = article.feed?.title {
+                            Text(feedTitle)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.purple)
+                                .lineLimit(1)
+                        }
+
+                        if let dur = article.duration, !dur.isEmpty {
+                            Label(dur, systemImage: "clock")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Spacer()
+                }
+
+                // Controles de reproducción
+                HStack(spacing: 20) {
+                    Button {
+                        if player.currentAudioURLString == audioURL {
+                            player.skipBackward(seconds: 15)
+                        }
+                    } label: {
+                        Image(systemName: "gobackward.15")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(player.currentAudioURLString != audioURL)
+
+                    Button {
+                        player.play(
+                            urlString: audioURL,
+                            title: article.title,
+                            podcast: article.feed?.title ?? "Podcast",
+                            artworkURL: article.imageURL,
+                            articleID: article.id
+                        )
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(Color.purple)
+                                .frame(width: 48, height: 48)
+
+                            if player.currentAudioURLString == audioURL && player.isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .colorInvert()
+                            } else {
+                                Image(systemName: isCurrentEpisodePlaying ? "pause.fill" : "play.fill")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .offset(x: isCurrentEpisodePlaying ? 0 : 2)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        if player.currentAudioURLString == audioURL {
+                            player.skipForward(seconds: 15)
+                        }
+                    } label: {
+                        Image(systemName: "goforward.15")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(player.currentAudioURLString != audioURL)
+
+                    Spacer()
+
+                    Button {
+                        player.cyclePlaybackRate()
+                    } label: {
+                        Text(String(format: "%.2gx", player.playbackRate))
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.purple)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.purple.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Barra de progreso interactiva si este episodio está activo
+                if player.currentAudioURLString == audioURL {
+                    VStack(spacing: 4) {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.primary.opacity(0.1)).frame(height: 5)
+                                Capsule().fill(Color.purple).frame(width: geo.size.width * CGFloat(player.progress), height: 5)
+                            }
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { val in
+                                        let pct = max(0, min(1, val.location.x / geo.size.width))
+                                        player.seek(to: Double(pct))
+                                    }
+                            )
+                        }
+                        .frame(height: 5)
+
+                        HStack {
+                            Text(player.currentTimeFormatted)
+                            Spacer()
+                            Text(player.remainingTimeFormatted)
+                        }
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(18)
+            .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+
+            // Notas del episodio (Show notes)
+            if let notes = article.content ?? article.summary, !notes.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("NOTAS DEL EPISODIO")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .tracking(0.6)
+
+                    if let html = article.content, !html.isEmpty {
+                        ReaderWebView(
+                            html: html,
+                            baseURLString: article.articleURL,
+                            fontFamily: settings.fontFamily.cssValue,
+                            fontSize: settings.fontSize,
+                            colorScheme: settings.colorScheme
+                        )
+                        .frame(minHeight: 300)
+                    } else if let summary = article.summary {
+                        Text(summary)
+                            .font(.system(size: CGFloat(max(13, settings.fontSize - 1))))
+                            .foregroundStyle(Color.primary.opacity(0.88))
+                            .lineSpacing(6)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.vertical, 20)
     }
 }
 

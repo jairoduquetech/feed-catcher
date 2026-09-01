@@ -51,7 +51,8 @@ struct TimelineView: View {
         switch selection {
         case .all:              return "Todos los artículos"
         case .favorites:        return "Favoritos"
-        case .videos:           return "Videos de YouTube"
+        case .allVideos:        return "YouTube"
+        case .allPodcasts:      return "Podcasts"
         case .category:         return selectedCategory?.name ?? "Carpeta"
         case .feed:             return selectedFeed?.title ?? "Feed"
         }
@@ -72,14 +73,16 @@ struct TimelineView: View {
     private var articles: [Article] {
         var result = allArticles
 
-        // 1. Filtro lateral
+        // 1. Filtro lateral por dominio
         switch selection {
         case .all:
-            break
+            result = result.filter { $0.isRegularArticle }
         case .favorites:
             result = result.filter { $0.isFavorite }
-        case .videos:
+        case .allVideos:
             result = result.filter { $0.isYouTubeVideo }
+        case .allPodcasts:
+            result = result.filter { $0.isPodcastEpisode }
         case .category(let catID):
             if let category = categories.first(where: { $0.id == catID }) {
                 let feedIDs = Set(category.feeds.map(\.id))
@@ -246,8 +249,11 @@ struct TimelineView: View {
         case .favorites: return "star"
         case .unread:    return "envelope.open"
         default:
-            if case .videos = selection { return "play.rectangle" }
-            return selection == .all ? "newspaper" : "tray"
+            switch selection {
+            case .allVideos:   return "play.rectangle"
+            case .allPodcasts: return "waveform"
+            default:           return selection == .all ? "newspaper" : "tray"
+            }
         }
     }
 
@@ -258,13 +264,18 @@ struct TimelineView: View {
         case .unread:    return "¡Estás al día!"
         default:
             switch selection {
-            case .all:       return feeds.isEmpty ? "No hay feeds aún" : "No hay artículos"
-            case .favorites: return "No hay favoritos todavía"
-            case .videos:    return "No hay videos de YouTube aún"
-            case .category:  return "Esta carpeta no tiene artículos"
-            case .feed:      return "No hay artículos en este feed"
+            case .all:         return regularFeedsCount == 0 ? "No hay feeds de noticias aún" : "No hay artículos"
+            case .favorites:   return "No hay favoritos todavía"
+            case .allVideos:   return "No hay videos de YouTube aún"
+            case .allPodcasts: return "No hay episodios de podcast aún"
+            case .category:    return "Esta carpeta no tiene artículos"
+            case .feed:        return "No hay artículos en este feed"
             }
         }
+    }
+
+    private var regularFeedsCount: Int {
+        feeds.filter { $0.isRegularArticleFeed }.count
     }
 
     private var emptySubtitle: String {
@@ -273,8 +284,12 @@ struct TimelineView: View {
         case .favorites: return "Marca artículos con estrella para verlos aquí"
         case .unread:    return "Has leído todo el contenido"
         default:
-            if case .videos = selection { return "Añade canales de YouTube con el botón +" }
-            return feeds.isEmpty ? "Añade un feed con el botón +" : "Actualiza (⌘R) para cargar noticias"
+            switch selection {
+            case .allVideos:   return "Añade canales de YouTube con el botón +"
+            case .allPodcasts: return "Añade podcasts con el botón +"
+            case .all:         return regularFeedsCount == 0 ? "Añade un feed de noticias con el botón +" : "Actualiza (⌘R) para cargar noticias"
+            default:           return "Actualiza (⌘R) para cargar contenido"
+            }
         }
     }
 
@@ -287,6 +302,12 @@ struct TimelineView: View {
             feedsToRefresh = [feed]
         } else if let category = selectedCategory {
             feedsToRefresh = category.feeds
+        } else if case .allVideos = selection {
+            feedsToRefresh = feeds.filter { $0.isYouTubeFeed }
+        } else if case .allPodcasts = selection {
+            feedsToRefresh = feeds.filter { $0.isPodcastFeed }
+        } else if case .all = selection {
+            feedsToRefresh = feeds.filter { $0.isRegularArticleFeed }
         } else {
             feedsToRefresh = feeds
         }

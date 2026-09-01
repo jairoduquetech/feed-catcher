@@ -29,10 +29,15 @@ struct ArticleRowView: View {
                                 Image(systemName: "play.rectangle.fill")
                                     .font(.system(size: 9))
                                     .foregroundStyle(.red)
+                            } else if article.isPodcastEpisode {
+                                Image(systemName: "waveform")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.purple)
                             }
+
                             Text(feedTitle.uppercased())
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(article.isYouTubeVideo ? Color.red.opacity(0.9) : Color.accentColor)
+                                .foregroundStyle(article.isYouTubeVideo ? Color.red.opacity(0.9) : (article.isPodcastEpisode ? Color.purple : Color.accentColor))
                                 .lineLimit(1)
                                 .tracking(0.3)
                         }
@@ -40,7 +45,14 @@ struct ArticleRowView: View {
 
                     Spacer(minLength: 4)
 
-                    if let date = article.publishDate {
+                    if let dur = article.duration, !dur.isEmpty {
+                        Text(dur)
+                            .font(.system(size: 9.5, weight: .medium))
+                            .foregroundStyle(.purple.opacity(0.85))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.purple.opacity(0.1), in: RoundedRectangle(cornerRadius: 3))
+                    } else if let date = article.publishDate {
                         Text(date.reederTimeFormatted)
                             .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.secondary)
@@ -96,6 +108,16 @@ struct ArticleRowView: View {
                                 .font(.system(size: 7, weight: .bold))
                                 .foregroundStyle(.white)
                                 .offset(x: 0.5)
+                        }
+                        .padding(4)
+                    } else if article.isPodcastEpisode {
+                        ZStack {
+                            Circle()
+                                .fill(Color.purple)
+                                .frame(width: 18, height: 18)
+                            Image(systemName: "mic.fill")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundStyle(.white)
                         }
                         .padding(4)
                     }

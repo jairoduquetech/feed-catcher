@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 // ──────────────────────────────────────────────────────────────────────────────
-// AddFeedView v5 — Añadir Feeds RSS y Canales de YouTube con resolución de @handles
+// AddFeedView v6 — Añadir Feeds RSS, Canales de YouTube y Podcasts
 // ──────────────────────────────────────────────────────────────────────────────
 
 struct AddFeedView: View {
@@ -11,13 +11,15 @@ struct AddFeedView: View {
     @Query(sort: \Feed.addedDate) private var existingFeeds: [Feed]
 
     enum FeedTypeTab: String, CaseIterable {
-        case websites = "Webs & Blogs"
+        case websites = "Noticias & Blogs"
         case youtube = "YouTube"
+        case podcasts = "Podcasts"
     }
 
     @State private var selectedTab: FeedTypeTab = .websites
     @State private var urlText = ""
     @State private var feedTitle = ""
+    @State private var podcastArtworkURL: String? = nil
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var didPreview = false
@@ -25,17 +27,21 @@ struct AddFeedView: View {
     @State private var isImporting = false
     @State private var importResult: String?
 
+    // Búsqueda de podcasts
+    @State private var podcastSearchResults: [PodcastSearchResult] = []
+    @State private var isSearchingPodcasts = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // ── Cabecera ─────────────────────────────────────────────────────
             HStack {
-                Text(selectedTab == .youtube ? "Añadir Canal de YouTube" : "Añadir Feed RSS")
+                Text(headerTitle)
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.primary)
 
                 Spacer()
 
-                // Botón destacado de importar desde Reeder
+                // Botón importar OPML
                 Button {
                     showOPMLImport = true
                 } label: {
@@ -53,7 +59,7 @@ struct AddFeedView: View {
             .padding(.top, 20)
             .padding(.bottom, 14)
 
-            // Selector de tipo (Web vs YouTube)
+            // Selector de tipo (Noticias / YouTube / Podcasts)
             Picker("Tipo de suscripción", selection: $selectedTab) {
                 ForEach(FeedTypeTab.allCases, id: \.self) { tab in
                     Text(tab.rawValue).tag(tab)
@@ -64,6 +70,7 @@ struct AddFeedView: View {
             .padding(.bottom, 14)
             .onChange(of: selectedTab) { _, _ in
                 errorMessage = nil
+                podcastSearchResults = []
             }
 
             Divider()
@@ -72,30 +79,29 @@ struct AddFeedView: View {
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(alignment: .leading, spacing: 16) {
 
-                    // ── Entrada de URL / Handle ──────────────────────────────
+                    // ── Campo de Entrada Principal ───────────────────────────
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(selectedTab == .youtube ? "HANDLE O ENLACE DEL CANAL" : "URL DEL FEED O SITIO WEB")
+                        Text(inputSectionTitle)
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
                             .tracking(0.5)
 
                         HStack {
-                            if selectedTab == .youtube {
-                                Image(systemName: "play.rectangle.fill")
-                                    .foregroundStyle(.red)
-                                    .font(.system(size: 14))
-                            }
+                            iconForTab
 
-                            TextField(
-                                selectedTab == .youtube ? "@mkbhd o https://youtube.com/@midudev" : "https://ejemplo.com/feed.xml",
-                                text: $urlText
-                            )
-                            .textFieldStyle(.plain)
-                            .foregroundStyle(.primary)
-                            .font(.body.monospaced())
-                            .onSubmit { Task { await preview() } }
+                            TextField(inputPlaceholder, text: $urlText)
+                                .textFieldStyle(.plain)
+                                .foregroundStyle(.primary)
+                                .font(selectedTab == .websites ? .body.monospaced() : .body)
+                                .onSubmit {
+                                    if selectedTab == .podcasts && !urlText.hasPrefix("http") {
+                                        Task { await searchPodcasts() }
+                                    } else {
+                                        Task { await preview() }
+                                    }
+                                }
 
-                            if isLoading {
+                            if isLoading || isSearchingPodcasts {
                                 ProgressView().scaleEffect(0.7)
                             }
                         }
@@ -103,7 +109,7 @@ struct AddFeedView: View {
                         .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
                     }
 
-                    // ── Nombre del feed previsualizado ───────────────────────
+                    // ── Nombre de la suscripción confirmada ──────────────────
                     if didPreview {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("NOMBRE DE LA SUSCRIPCIÓN")
@@ -126,9 +132,16 @@ struct AddFeedView: View {
                             .foregroundStyle(.red.opacity(0.85))
                     }
 
-                    // ── Sugerencias según pestaña seleccionada ───────────────
+                    // ── Resultados de Búsqueda de Podcasts ───────────────────
+                    if selectedTab == .podcasts && !podcastSearchResults.isEmpty {
+                        podcastResultsSection
+                    }
+
+                    // ── Sugerencias Populares ────────────────────────────────
                     if selectedTab == .youtube {
                         youtubeSuggestionsSection
+                    } else if selectedTab == .podcasts {
+                        podcastSuggestionsSection
                     } else {
                         websiteSuggestionsSection
                     }
@@ -160,14 +173,18 @@ struct AddFeedView: View {
                 Spacer()
 
                 if !didPreview {
-                    Button(selectedTab == .youtube ? "Buscar Canal" : "Previsualizar Feed") {
-                        Task { await preview() }
+                    Button(actionButtonTitle) {
+                        if selectedTab == .podcasts && !urlText.hasPrefix("http") {
+                            Task { await searchPodcasts() }
+                        } else {
+                            Task { await preview() }
+                        }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(urlText.trimmingCharacters(in: .whitespaces).isEmpty || isLoading)
+                    .disabled(urlText.trimmingCharacters(in: .whitespaces).isEmpty || isLoading || isSearchingPodcasts)
                     .keyboardShortcut(.return)
                 } else {
-                    Button(selectedTab == .youtube ? "Seguir Canal" : "Añadir Feed") {
+                    Button(confirmButtonTitle) {
                         addFeed()
                     }
                     .buttonStyle(.borderedProminent)
@@ -178,7 +195,7 @@ struct AddFeedView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
         }
-        .frame(width: 480, height: 540)
+        .frame(width: 500, height: 560)
         .background(Color(nsColor: .windowBackgroundColor))
         .fileImporter(
             isPresented: $showOPMLImport,
@@ -189,7 +206,127 @@ struct AddFeedView: View {
         }
     }
 
-    // MARK: - Secciones de sugerencias
+    // MARK: - Helpers de Textos e Íconos
+
+    private var headerTitle: String {
+        switch selectedTab {
+        case .websites: return "Añadir Feed RSS"
+        case .youtube:  return "Añadir Canal de YouTube"
+        case .podcasts: return "Añadir Podcast"
+        }
+    }
+
+    private var inputSectionTitle: String {
+        switch selectedTab {
+        case .websites: return "URL DEL FEED O SITIO WEB"
+        case .youtube:  return "HANDLE O ENLACE DEL CANAL"
+        case .podcasts: return "BUSCAR NOMBRE O URL DEL PODCAST"
+        }
+    }
+
+    private var inputPlaceholder: String {
+        switch selectedTab {
+        case .websites: return "https://ejemplo.com/feed.xml"
+        case .youtube:  return "@mkbhd o https://youtube.com/@midudev"
+        case .podcasts: return "Ej: The Wild Project, Radio Ambulante, Huberman…"
+        }
+    }
+
+    private var actionButtonTitle: String {
+        switch selectedTab {
+        case .websites: return "Previsualizar Feed"
+        case .youtube:  return "Buscar Canal"
+        case .podcasts: return urlText.hasPrefix("http") ? "Previsualizar Podcast" : "Buscar Podcast"
+        }
+    }
+
+    private var confirmButtonTitle: String {
+        switch selectedTab {
+        case .websites: return "Añadir Feed"
+        case .youtube:  return "Seguir Canal"
+        case .podcasts: return "Seguir Podcast"
+        }
+    }
+
+    @ViewBuilder
+    private var iconForTab: some View {
+        switch selectedTab {
+        case .websites:
+            Image(systemName: "globe")
+                .foregroundStyle(Color.accentColor)
+                .font(.system(size: 14))
+        case .youtube:
+            Image(systemName: "play.rectangle.fill")
+                .foregroundStyle(.red)
+                .font(.system(size: 14))
+        case .podcasts:
+            Image(systemName: "waveform")
+                .foregroundStyle(.purple)
+                .font(.system(size: 14, weight: .bold))
+        }
+    }
+
+    // MARK: - Secciones de Sugerencias y Resultados
+
+    @ViewBuilder
+    private var podcastResultsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("RESULTADOS DE APPLE PODCASTS")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.purple)
+                .tracking(0.5)
+
+            VStack(spacing: 6) {
+                ForEach(podcastSearchResults) { result in
+                    Button {
+                        urlText = result.feedURL
+                        feedTitle = result.title
+                        podcastArtworkURL = result.artworkURL
+                        didPreview = true
+                        errorMessage = nil
+                    } label: {
+                        HStack(spacing: 10) {
+                            if let art = result.artworkURL, !art.isEmpty {
+                                CachedAsyncImageView(urlString: art, targetSize: CGSize(width: 36, height: 36)) { img in
+                                    img.resizable().scaledToFill()
+                                } placeholder: {
+                                    RoundedRectangle(cornerRadius: 6).fill(Color.purple.opacity(0.15))
+                                }
+                                .frame(width: 36, height: 36)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(result.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                HStack(spacing: 4) {
+                                    Text(result.artist)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Text("•")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary.opacity(0.5))
+                                    Text(result.genre)
+                                        .font(.caption2)
+                                        .foregroundStyle(.purple)
+                                }
+                                .lineLimit(1)
+                            }
+                            Spacer()
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(.purple)
+                        }
+                        .padding(8)
+                        .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
 
     @ViewBuilder
     private var websiteSuggestionsSection: some View {
@@ -233,6 +370,28 @@ struct AddFeedView: View {
         }
     }
 
+    @ViewBuilder
+    private var podcastSuggestionsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("PODCASTS POPULARES")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .tracking(0.5)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                ForEach(SuggestedPodcast.popular) { podcast in
+                    SuggestedPodcastCell(podcast: podcast) {
+                        urlText = podcast.feedURL
+                        feedTitle = podcast.title
+                        podcastArtworkURL = podcast.artworkURL
+                        didPreview = true
+                        errorMessage = nil
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Previsualizar
 
     private func preview() async {
@@ -244,7 +403,7 @@ struct AddFeedView: View {
 
         var targetURL = trimmed
 
-        // Si es consulta de YouTube o estamos en la pestaña de YouTube
+        // Si es consulta de YouTube
         if selectedTab == .youtube || YouTubeService.isYouTubeQuery(trimmed) {
             if let resolved = await YouTubeService.shared.resolveToRSS(query: trimmed) {
                 targetURL = resolved
@@ -259,10 +418,27 @@ struct AddFeedView: View {
             let parsed = try await RSSService.shared.fetchFeed(urlString: targetURL)
             feedTitle = parsed.title
             urlText = targetURL
+            if podcastArtworkURL == nil {
+                podcastArtworkURL = parsed.faviconURL
+            }
             didPreview = true
         } catch {
             errorMessage = error.localizedDescription
             didPreview = false
+        }
+    }
+
+    private func searchPodcasts() async {
+        let trimmed = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        isSearchingPodcasts = true
+        errorMessage = nil
+        defer { isSearchingPodcasts = false }
+
+        let results = await PodcastService.shared.searchPodcasts(query: trimmed)
+        podcastSearchResults = results
+        if results.isEmpty {
+            errorMessage = "No se encontraron podcasts con ese nombre. Prueba con otra palabra clave o pega la URL RSS directamente."
         }
     }
 
@@ -271,7 +447,7 @@ struct AddFeedView: View {
     private func addFeed() {
         let url = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty, !feedTitle.isEmpty else { return }
-        let feed = Feed(title: feedTitle, url: url)
+        let feed = Feed(title: feedTitle, url: url, faviconURL: podcastArtworkURL)
         modelContext.insert(feed)
         try? modelContext.save()
         dismiss()
@@ -311,8 +487,9 @@ struct AddFeedView: View {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// SuggestedFeedCell
+// Celdas de sugerencias
 // ──────────────────────────────────────────────────────────────────────────────
+
 private struct SuggestedFeedCell: View {
     let suggestion: SuggestedFeed
     let action: () -> Void
@@ -342,9 +519,6 @@ private struct SuggestedFeedCell: View {
     }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// SuggestedYouTubeCell
-// ──────────────────────────────────────────────────────────────────────────────
 private struct SuggestedYouTubeCell: View {
     let channel: SuggestedYouTubeChannel
     let action: () -> Void
@@ -378,6 +552,57 @@ private struct SuggestedYouTubeCell: View {
                         Text(channel.category)
                             .font(.caption2)
                             .foregroundStyle(.red.opacity(0.85))
+                    }
+                    .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                Color.primary.opacity(isHovered ? 0.08 : 0.04),
+                in: RoundedRectangle(cornerRadius: 8)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+}
+
+private struct SuggestedPodcastCell: View {
+    let podcast: SuggestedPodcast
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.purple.opacity(0.15))
+                        .frame(width: 28, height: 28)
+                    Image(systemName: "waveform")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.purple)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(podcast.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    HStack(spacing: 4) {
+                        Text(podcast.host)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text("•")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary.opacity(0.5))
+                        Text(podcast.category)
+                            .font(.caption2)
+                            .foregroundStyle(.purple.opacity(0.85))
                     }
                     .lineLimit(1)
                 }

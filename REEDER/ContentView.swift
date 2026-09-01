@@ -28,6 +28,9 @@ struct ContentView: View {
         .sheet(isPresented: $showAddFeed) {
             AddFeedView()
         }
+        .safeAreaInset(edge: .bottom) {
+            MiniPlayerView()
+        }
         .preferredColorScheme(settings.colorScheme.swiftUIScheme)
     }
 }

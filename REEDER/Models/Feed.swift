@@ -26,7 +26,20 @@ final class Feed {
 
     /// Detecta si es un feed de canal de YouTube
     var isYouTubeFeed: Bool {
-        url.contains("youtube.com/feeds/videos.xml")
+        url.contains("youtube.com/feeds/videos.xml") || url.contains("youtube.com")
+    }
+
+    /// Detecta si es un feed de podcast
+    var isPodcastFeed: Bool {
+        if url.contains("ivoox.com") || url.contains("simplecast.com") || url.contains("anchor.fm") || url.contains("megaphone.fm") || url.contains("npr.org") || url.contains("podcast") || url.contains("feed.syntax.fm") {
+            return true
+        }
+        return articles.contains(where: { $0.isPodcastEpisode })
+    }
+
+    /// Detecta si es un feed regular de noticias/artículos (no video ni podcast)
+    var isRegularArticleFeed: Bool {
+        !isYouTubeFeed && !isPodcastFeed
     }
 
     /// Best-effort favicon URL using DuckDuckGo's favicon service

@@ -29,6 +29,8 @@ struct ParsedArticle {
     let imageURL: String?
     let author: String?
     let publishDate: Date?
+    let audioURL: String?
+    let duration: String?
 }
 
 struct ParsedFeed {
@@ -133,6 +135,8 @@ private final class FeedXMLParser: NSObject, XMLParserDelegate {
     private var itemImageURL: String?
     private var itemAuthor = ""
     private var itemPubDate = ""
+    private var itemAudioURL: String?
+    private var itemDuration: String?
     private var isAtom = false
 
     private var charBuffer = ""
@@ -184,6 +188,7 @@ private final class FeedXMLParser: NSObject, XMLParserDelegate {
             inItem = true
             itemTitle = ""; itemLink = ""; itemSummary = ""
             itemContent = ""; itemImageURL = nil; itemAuthor = ""; itemPubDate = ""
+            itemAudioURL = nil; itemDuration = nil
             return
         }
 
@@ -191,6 +196,11 @@ private final class FeedXMLParser: NSObject, XMLParserDelegate {
             if local == "link" {
                 if let href = attrs["href"], !href.isEmpty {
                     feedSiteURL = href
+                }
+            }
+            if qualified.hasSuffix(":image") || local == "image" {
+                if let href = attrs["href"] ?? attrs["url"], !href.isEmpty {
+                    feedSiteURL = feedSiteURL ?? href
                 }
             }
             return
@@ -205,6 +215,11 @@ private final class FeedXMLParser: NSObject, XMLParserDelegate {
             if rel == "enclosure" || attrs["type"]?.hasPrefix("image/") == true {
                 if let href = attrs["href"], !href.isEmpty, itemImageURL == nil {
                     itemImageURL = cleanURL(href)
+                }
+            }
+            if rel == "enclosure" || attrs["type"]?.hasPrefix("audio/") == true {
+                if let href = attrs["href"], !href.isEmpty, itemAudioURL == nil {
+                    itemAudioURL = cleanURL(href)
                 }
             }
             return
@@ -224,12 +239,21 @@ private final class FeedXMLParser: NSObject, XMLParserDelegate {
             if isImg, let u = attrs["url"] ?? attrs["href"], !u.isEmpty, itemImageURL == nil {
                 itemImageURL = cleanURL(u)
             }
+            if medium == "audio" || type.hasPrefix("audio/") {
+                if let u = attrs["url"] ?? attrs["href"], !u.isEmpty, itemAudioURL == nil {
+                    itemAudioURL = cleanURL(u)
+                }
+            }
             return
         }
 
         if local == "enclosure" {
             let type = attrs["type"] ?? ""
             let u    = attrs["url"] ?? attrs["href"] ?? ""
+            let isAudio = type.hasPrefix("audio/") || u.hasSuffix(".mp3") || u.hasSuffix(".m4a") || u.hasSuffix(".aac") || u.hasSuffix(".ogg")
+            if isAudio, !u.isEmpty, itemAudioURL == nil {
+                itemAudioURL = cleanURL(u)
+            }
             let isImgType = type.hasPrefix("image/") || u.hasSuffix(".jpg") || u.hasSuffix(".jpeg") || u.hasSuffix(".png") || u.hasSuffix(".webp")
             if isImgType, !u.isEmpty, itemImageURL == nil {
                 itemImageURL = cleanURL(u)
@@ -277,7 +301,9 @@ private final class FeedXMLParser: NSObject, XMLParserDelegate {
                 content:     itemContent.isEmpty ? nil : itemContent,
                 imageURL:    extractedImage,
                 author:      itemAuthor.isEmpty ? nil : itemAuthor,
-                publishDate: parseDate(itemPubDate)
+                publishDate: parseDate(itemPubDate),
+                audioURL:    itemAudioURL,
+                duration:    itemDuration
             )
             items.append(article)
             inItem = false
@@ -298,11 +324,16 @@ private final class FeedXMLParser: NSObject, XMLParserDelegate {
                 itemContent += trimmed
             case "creator", "author", "dc:creator", "name":
                 if itemAuthor.isEmpty { itemAuthor = trimmed }
+            case "duration":
+                if itemDuration == nil { itemDuration = trimmed }
             case "pubdate", "published", "updated", "date", "dc:date":
                 itemPubDate += trimmed
             case "guid", "id":
                 if itemLink.isEmpty, trimmed.hasPrefix("http") { itemLink = trimmed }
             default:
+                if qualified.hasSuffix(":duration") && itemDuration == nil {
+                    itemDuration = trimmed
+                }
                 if qualified == "dc:creator" && itemAuthor.isEmpty {
                     itemAuthor = trimmed
                 }

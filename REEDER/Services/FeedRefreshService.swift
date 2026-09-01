@@ -93,6 +93,12 @@ final class FeedRefreshService {
                     if existing.summary == nil && item.summary != nil {
                         existing.summary = item.summary
                     }
+                    if existing.audioURL == nil && item.audioURL != nil {
+                        existing.audioURL = item.audioURL
+                    }
+                    if existing.duration == nil && item.duration != nil {
+                        existing.duration = item.duration
+                    }
                 } else {
                     let article = Article(
                         title: item.title,
@@ -102,6 +108,8 @@ final class FeedRefreshService {
                         imageURL: item.imageURL,
                         author: item.author,
                         publishDate: item.publishDate,
+                        audioURL: item.audioURL,
+                        duration: item.duration,
                         feed: feed
                     )
                     context.insert(article)
