@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 // ──────────────────────────────────────────────────────────────────────────────
-// MoveToCategoryView — Sheet para mover un feed a una categoría
+// MoveToCategoryView — Sheet para mover un feed a una carpeta
 // ──────────────────────────────────────────────────────────────────────────────
 
 struct MoveToCategoryView: View {
@@ -17,8 +17,9 @@ struct MoveToCategoryView: View {
             // Cabecera
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Mover a categoría")
+                    Text("Mover a carpeta")
                         .font(.headline)
+                        .foregroundStyle(.primary)
                     Text(feed.title)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -29,22 +30,23 @@ struct MoveToCategoryView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                        .font(.title2)
+                        .foregroundStyle(.secondary.opacity(0.8))
+                        .font(.title3)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
 
             Divider()
 
             ScrollView {
                 VStack(spacing: 4) {
-                    // Opción sin categoría
+                    // Opción sin carpeta
                     CategoryOptionRow(
                         icon: "minus.circle",
                         iconColor: .secondary,
-                        name: "Sin categoría",
+                        name: "Sin carpeta",
                         isSelected: feed.category == nil
                     ) {
                         feed.category = nil
@@ -52,9 +54,11 @@ struct MoveToCategoryView: View {
                         dismiss()
                     }
 
-                    Divider().padding(.horizontal, 16)
+                    if !categories.isEmpty {
+                        Divider().padding(.horizontal, 16).padding(.vertical, 4)
+                    }
 
-                    // Categorías disponibles
+                    // Carpetas disponibles
                     ForEach(categories) { category in
                         CategoryOptionRow(
                             icon: category.icon,
@@ -73,30 +77,34 @@ struct MoveToCategoryView: View {
                             Image(systemName: "folder.badge.plus")
                                 .font(.system(size: 32))
                                 .foregroundStyle(.secondary.opacity(0.4))
-                            Text("No tienes categorías todavía")
-                                .font(.callout)
+                            Text("No tienes carpetas todavía")
+                                .font(.callout.weight(.medium))
                                 .foregroundStyle(.secondary)
-                            Text("Crea una categoría con el botón + en la barra lateral")
+                            Text("Crea una carpeta con el botón + en la barra lateral")
                                 .font(.caption)
                                 .foregroundStyle(.secondary.opacity(0.7))
                                 .multilineTextAlignment(.center)
                         }
-                        .padding(32)
+                        .padding(.vertical, 32)
+                        .padding(.horizontal, 16)
                     }
                 }
                 .padding(.vertical, 8)
+                .padding(.horizontal, 8)
             }
 
             Divider()
 
             HStack {
                 Spacer()
-                Button("Cancelar") { dismiss() }
+                Button("Cerrar") { dismiss() }
                     .keyboardShortcut(.escape)
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .frame(width: 300, height: 380)
+        .frame(width: 320, height: 380)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 
@@ -107,15 +115,17 @@ private struct CategoryOptionRow: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @State private var isHovered = false
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(iconColor.opacity(0.15))
-                        .frame(width: 30, height: 30)
+                        .frame(width: 28, height: 28)
                     Image(systemName: icon)
-                        .font(.system(size: 15))
+                        .font(.system(size: 14))
                         .foregroundStyle(iconColor)
                 }
 
@@ -131,10 +141,14 @@ private struct CategoryOptionRow: View {
                         .foregroundStyle(Color.accentColor)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isSelected ? Color.accentColor.opacity(0.08) : (isHovered ? Color.primary.opacity(0.04) : Color.clear))
+            )
         }
         .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }

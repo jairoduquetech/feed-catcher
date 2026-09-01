@@ -1,7 +1,7 @@
 import SwiftUI
 
 // ──────────────────────────────────────────────────────────────────────────────
-// AddCategoryView — Modal para crear o editar una categoría
+// AddCategoryView — Modal para crear o editar una carpeta de feeds
 // ──────────────────────────────────────────────────────────────────────────────
 
 struct AddCategoryView: View {
@@ -12,21 +12,21 @@ struct AddCategoryView: View {
 
     @State private var name: String = ""
     @State private var selectedIcon: String = "folder.fill"
-    @State private var selectedColor: String = "#888888"
+    @State private var selectedColor: String = "#FF9500"
 
     private var isEditing: Bool { editingCategory != nil }
 
-    // SF Symbols disponibles para categorías
+    // SF Symbols categorizados
     private let iconOptions: [(name: String, label: String)] = [
         ("folder.fill", "Carpeta"),
         ("newspaper.fill", "Noticias"),
         ("laptopcomputer", "Tecnología"),
         ("gamecontroller.fill", "Videojuegos"),
+        ("chart.line.uptrend.xyaxis", "Finanzas"),
         ("music.note", "Música"),
-        ("film.fill", "Entretenimiento"),
+        ("film.fill", "Cine & Series"),
         ("sportscourt.fill", "Deportes"),
-        ("chart.bar.fill", "Finanzas"),
-        ("heart.fill", "Salud"),
+        ("heart.fill", "Salud & Vida"),
         ("fork.knife", "Gastronomía"),
         ("airplane", "Viajes"),
         ("briefcase.fill", "Trabajo"),
@@ -36,92 +36,108 @@ struct AddCategoryView: View {
         ("leaf.fill", "Naturaleza"),
         ("globe", "Internacional"),
         ("star.fill", "Favoritos"),
-        ("bell.fill", "Notificaciones"),
-        ("lightbulb.fill", "Ideas"),
+        ("bubble.left.and.bubble.right.fill", "Comunidad"),
+        ("lightbulb.fill", "Ideas & Ciencia"),
     ]
 
     private let colorOptions: [String] = [
-        "#888888", "#FF6B6B", "#FF9500", "#FFCC00",
-        "#34C759", "#00C7BE", "#007AFF", "#5856D6",
-        "#AF52DE", "#FF2D55", "#FF6B35", "#1ABC9C",
+        "#FF9500", "#FF6B6B", "#FF2D55", "#AF52DE",
+        "#5856D6", "#007AFF", "#00C7BE", "#34C759",
+        "#FFCC00", "#FF6B35", "#1ABC9C", "#8E8E93",
     ]
+
+    private var previewColor: Color {
+        Color(hex: selectedColor) ?? .accentColor
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Cabecera
+            // ── Barra Superior ──────────────────────────────────────────────
             HStack {
-                Text(isEditing ? "Editar categoría" : "Nueva categoría")
+                Text(isEditing ? "Editar carpeta" : "Nueva carpeta")
                     .font(.headline)
+                    .foregroundStyle(.primary)
+
                 Spacer()
+
                 Button {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                        .font(.title2)
+                        .foregroundStyle(.secondary.opacity(0.8))
+                        .font(.title3)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
 
             Divider()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+            // ── Contenido ───────────────────────────────────────────────────
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(spacing: 20) {
 
-                    // ── Vista previa ─────────────────────────────────────────
-                    HStack {
-                        Spacer()
-                        VStack(spacing: 8) {
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(Color(hex: selectedColor) ?? .gray)
-                                    .frame(width: 52, height: 52)
-                                Image(systemName: selectedIcon)
-                                    .font(.system(size: 26))
-                                    .foregroundStyle(.white)
-                            }
-                            Text(name.isEmpty ? "Mi categoría" : name)
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.secondary)
+                    // Vista previa de la carpeta
+                    VStack(spacing: 8) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(previewColor.opacity(0.2))
+                                .frame(width: 58, height: 58)
+
+                            Image(systemName: selectedIcon)
+                                .font(.system(size: 26, weight: .semibold))
+                                .foregroundStyle(previewColor)
                         }
-                        Spacer()
-                    }
-                    .padding(.top, 8)
 
-                    // ── Nombre ───────────────────────────────────────────────
+                        Text(name.trimmingCharacters(in: .whitespaces).isEmpty ? "Nombre de la carpeta" : name)
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(name.trimmingCharacters(in: .whitespaces).isEmpty ? .secondary : .primary)
+                            .lineLimit(1)
+                    }
+                    .padding(.top, 10)
+
+                    // Campo de Nombre
                     VStack(alignment: .leading, spacing: 6) {
                         Text("NOMBRE")
-                            .font(.caption.weight(.bold))
+                            .font(.caption2.weight(.bold))
                             .foregroundStyle(.secondary)
-                            .tracking(0.5)
+                            .tracking(0.6)
 
-                        TextField("Ej: Tecnología, Deportes…", text: $name)
+                        TextField("Ej: Tecnología, Videojuegos, Noticias…", text: $name)
                             .textFieldStyle(.roundedBorder)
+                            .controlSize(.large)
                     }
 
-                    // ── Ícono ────────────────────────────────────────────────
-                    VStack(alignment: .leading, spacing: 10) {
+                    // Selector de Ícono
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("ÍCONO")
-                            .font(.caption.weight(.bold))
+                            .font(.caption2.weight(.bold))
                             .foregroundStyle(.secondary)
-                            .tracking(0.5)
+                            .tracking(0.6)
 
-                        LazyVGrid(columns: Array(repeating: GridItem(.fixed(48), spacing: 8), count: 8), spacing: 8) {
+                        LazyVGrid(
+                            columns: Array(repeating: GridItem(.flexible(minimum: 40, maximum: 48), spacing: 8), count: 5),
+                            spacing: 8
+                        ) {
                             ForEach(iconOptions, id: \.name) { icon in
+                                let isSelected = selectedIcon == icon.name
                                 Button {
                                     selectedIcon = icon.name
                                 } label: {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .fill(selectedIcon == icon.name
-                                                  ? (Color(hex: selectedColor) ?? .accentColor)
-                                                  : Color.secondary.opacity(0.1))
+                                            .fill(isSelected ? previewColor.opacity(0.18) : Color.primary.opacity(0.04))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                    .stroke(isSelected ? previewColor : Color.clear, lineWidth: 1.5)
+                                            )
+
                                         Image(systemName: icon.name)
-                                            .font(.system(size: 18))
-                                            .foregroundStyle(selectedIcon == icon.name ? .white : Color.primary.opacity(0.7))
+                                            .font(.system(size: 17))
+                                            .foregroundStyle(isSelected ? previewColor : Color.primary.opacity(0.75))
                                     }
-                                    .frame(width: 44, height: 44)
+                                    .frame(height: 38)
                                 }
                                 .buttonStyle(.plain)
                                 .help(icon.label)
@@ -129,56 +145,73 @@ struct AddCategoryView: View {
                         }
                     }
 
-                    // ── Color ────────────────────────────────────────────────
-                    VStack(alignment: .leading, spacing: 10) {
+                    // Selector de Color
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("COLOR")
-                            .font(.caption.weight(.bold))
+                            .font(.caption2.weight(.bold))
                             .foregroundStyle(.secondary)
-                            .tracking(0.5)
+                            .tracking(0.6)
 
-                        HStack(spacing: 8) {
+                        LazyVGrid(
+                            columns: Array(repeating: GridItem(.flexible(minimum: 30, maximum: 36), spacing: 8), count: 6),
+                            spacing: 10
+                        ) {
                             ForEach(colorOptions, id: \.self) { hex in
+                                let isSelected = selectedColor.caseInsensitiveCompare(hex) == .orderedSame
+                                let swatchColor = Color(hex: hex) ?? .gray
+
                                 Button {
                                     selectedColor = hex
                                 } label: {
                                     ZStack {
                                         Circle()
-                                            .fill(Color(hex: hex) ?? .gray)
-                                            .frame(width: 28, height: 28)
-                                        if selectedColor == hex {
+                                            .fill(swatchColor)
+                                            .frame(width: 26, height: 26)
+
+                                        if isSelected {
+                                            Circle()
+                                                .stroke(Color.primary.opacity(0.6), lineWidth: 2)
+                                                .frame(width: 32, height: 32)
+
                                             Image(systemName: "checkmark")
-                                                .font(.caption.weight(.bold))
+                                                .font(.system(size: 11, weight: .bold))
                                                 .foregroundStyle(.white)
                                         }
                                     }
+                                    .frame(height: 34)
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, 22)
+                .padding(.bottom, 16)
             }
 
             Divider()
 
-            // Acciones
+            // ── Barra de Acciones ───────────────────────────────────────────
             HStack {
-                Button("Cancelar") { dismiss() }
-                    .keyboardShortcut(.escape)
+                Button("Cancelar") {
+                    dismiss()
+                }
+                .keyboardShortcut(.escape)
 
                 Spacer()
 
-                Button(isEditing ? "Guardar" : "Crear categoría") {
+                Button(isEditing ? "Guardar" : "Crear carpeta") {
                     saveCategory()
                 }
                 .keyboardShortcut(.return)
                 .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 .buttonStyle(.borderedProminent)
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
         }
-        .frame(width: 420, height: 520)
+        .frame(width: 440, height: 530)
+        .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             if let cat = editingCategory {
                 name = cat.name
