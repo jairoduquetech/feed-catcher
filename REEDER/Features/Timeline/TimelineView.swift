@@ -78,7 +78,15 @@ struct TimelineView: View {
         case .favorites:
             result = result.filter { $0.isFavorite }
         case .category(let catID):
-            result = result.filter { $0.feed?.category?.id == catID }
+            if let category = categories.first(where: { $0.id == catID }) {
+                let feedIDs = Set(category.feeds.map(\.id))
+                result = result.filter { article in
+                    guard let feedID = article.feed?.id else { return false }
+                    return feedIDs.contains(feedID)
+                }
+            } else {
+                result = []
+            }
         case .feed(let feedID):
             result = result.filter { $0.feed?.id == feedID }
         }

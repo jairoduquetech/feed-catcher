@@ -22,7 +22,7 @@ enum SidebarItem: Hashable, Identifiable {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// SidebarView v8 — Carpetas con Drag & Drop + Vistas inteligentes + Feeds
+// SidebarView v9 — Selección fluida + Carpetas + Feeds + Drag & Drop nativo
 // ──────────────────────────────────────────────────────────────────────────────
 struct SidebarView: View {
     @Environment(\.modelContext) private var modelContext
@@ -67,14 +67,26 @@ struct SidebarView: View {
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 4)
             } else {
-                ForEach(categories) { cat in
-                    SidebarCategoryRow(
-                        category: cat,
-                        selection: $selection,
-                        collapsedCategories: $collapsedCategories,
-                        movingFeed: $movingFeed,
-                        editingCategory: $editingCategory
+                ForEach(categories) { category in
+                    // 1. Fila de la Carpeta (Direct child of List for selection & drop)
+                    CategoryHeaderRow(
+                        category: category,
+                        isSelected: selection == .category(category.id),
+                        isCollapsed: collapsedCategories.contains(category.id),
+                        onToggleCollapse: { toggleCollapse(category) },
+                        onDropFeed: { feedUUID in moveFeed(withID: feedUUID, to: category) }
                     )
+                    .tag(SidebarItem.category(category.id))
+                    .contextMenu { categoryContextMenu(for: category) }
+
+                    // 2. Feeds dentro de la carpeta (Direct children of List for selection & drag)
+                    if !collapsedCategories.contains(category.id) {
+                        ForEach(category.feeds.sorted(by: { $0.addedDate < $1.addedDate })) { feed in
+                            FeedRowView(feed: feed, isSelected: selection == .feed(feed.id), indented: true)
+                                .tag(SidebarItem.feed(feed.id))
+                                .contextMenu { feedContextMenu(for: feed) }
+                        }
+                    }
                 }
             }
         } header: {
@@ -217,13 +229,42 @@ struct SidebarView: View {
         .animation(.easeInOut, value: importError)
     }
 
-    // MARK: - Drag and Drop Helper
+    // MARK: - Drag and Drop Helpers
+
+    private func moveFeed(withID id: UUID, to category: FeedCategory) {
+        let descriptor = FetchDescriptor<Feed>(predicate: #Predicate { $0.id == id })
+        if let feeds = try? modelContext.fetch(descriptor), let feed = feeds.first {
+            feed.category = category
+            try? modelContext.save()
+            // Auto expand category so the user sees the dropped item
+            collapsedCategories.remove(category.id)
+        }
+    }
 
     private func removeFeedFromCategory(_ id: UUID) {
         let descriptor = FetchDescriptor<Feed>(predicate: #Predicate { $0.id == id })
         if let feeds = try? modelContext.fetch(descriptor), let feed = feeds.first {
             feed.category = nil
             try? modelContext.save()
+        }
+    }
+
+    // MARK: - Category Context Menu
+
+    @ViewBuilder
+    private func categoryContextMenu(for category: FeedCategory) -> some View {
+        Button {
+            editingCategory = category
+        } label: {
+            Label("Editar carpeta", systemImage: "pencil")
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            deleteCategory(category)
+        } label: {
+            Label("Eliminar carpeta", systemImage: "trash")
         }
     }
 
@@ -280,6 +321,14 @@ struct SidebarView: View {
     }
 
     // MARK: - Acciones
+
+    private func toggleCollapse(_ category: FeedCategory) {
+        if collapsedCategories.contains(category.id) {
+            collapsedCategories.remove(category.id)
+        } else {
+            collapsedCategories.insert(category.id)
+        }
+    }
 
     private func deleteCategory(_ category: FeedCategory) {
         if case .category(let id) = selection, id == category.id {
@@ -345,68 +394,15 @@ struct SidebarView: View {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// SidebarCategoryRow — Wrapper self-contained para evitar problemas de type-checking
+// CategoryHeaderRow — Fila de cabecera de carpeta (clicable para ver noticias y destino de Drop)
 // ──────────────────────────────────────────────────────────────────────────────
-struct SidebarCategoryRow: View {
+struct CategoryHeaderRow: View {
     let category: FeedCategory
-    @Binding var selection: SidebarItem
-    @Binding var collapsedCategories: Set<UUID>
-    @Binding var movingFeed: Feed?
-    @Binding var editingCategory: FeedCategory?
-
-    @Environment(\.modelContext) private var modelContext
-
-    private var collapsed: Bool { collapsedCategories.contains(category.id) }
-
-    var body: some View {
-        CategorySectionView(
-            category: category,
-            selection: $selection,
-            collapsed: collapsed,
-            movingFeed: $movingFeed,
-            onToggleCollapse: {
-                if collapsedCategories.contains(category.id) {
-                    collapsedCategories.remove(category.id)
-                } else {
-                    collapsedCategories.insert(category.id)
-                }
-            }
-        )
-        .contextMenu {
-            Button {
-                editingCategory = category
-            } label: {
-                Label("Editar carpeta", systemImage: "pencil")
-            }
-            Divider()
-            Button(role: .destructive) {
-                deleteCategory()
-            } label: {
-                Label("Eliminar carpeta", systemImage: "trash")
-            }
-        }
-    }
-
-    private func deleteCategory() {
-        if case .category(let id) = selection, id == category.id {
-            selection = .all
-        }
-        modelContext.delete(category)
-        try? modelContext.save()
-    }
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// CategorySectionView — Fila de categoría colapsable y destino de Drop
-// ──────────────────────────────────────────────────────────────────────────────
-struct CategorySectionView: View {
-    let category: FeedCategory
-    @Binding var selection: SidebarItem
-    let collapsed: Bool
-    @Binding var movingFeed: Feed?
+    let isSelected: Bool
+    let isCollapsed: Bool
     let onToggleCollapse: () -> Void
+    let onDropFeed: (UUID) -> Void
 
-    @Environment(\.modelContext) private var modelContext
     @State private var isDropTarget: Bool = false
 
     private var unreadCount: Int { category.unreadCount }
@@ -415,100 +411,63 @@ struct CategorySectionView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Cabecera de la categoría (clicable para seleccionar y destino de drop)
-            HStack(spacing: 8) {
-                // Ícono de la categoría con su color
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(categoryColor.opacity(0.2))
-                        .frame(width: 22, height: 22)
-                    Image(systemName: category.icon)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(categoryColor)
-                }
-
-                Text(category.name)
-                    .font(.system(size: 13, weight: selection == .category(category.id) ? .semibold : .regular))
-                    .foregroundStyle(Color.primary.opacity(0.9))
-                    .lineLimit(1)
-
-                Spacer()
-
-                if unreadCount > 0 {
-                    Text("\(unreadCount)")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(categoryColor, in: Capsule())
-                }
-
-                Button(action: onToggleCollapse) {
-                    Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 16, height: 16)
-                }
-                .buttonStyle(.plain)
+        HStack(spacing: 8) {
+            // Ícono de la categoría con su color
+            ZStack {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(categoryColor.opacity(0.2))
+                    .frame(width: 22, height: 22)
+                Image(systemName: category.icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(categoryColor)
             }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 4)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(
-                        isDropTarget
-                            ? categoryColor.opacity(0.25)
-                            : (selection == .category(category.id) ? categoryColor.opacity(0.12) : Color.clear)
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(isDropTarget ? categoryColor : Color.clear, lineWidth: 1.5)
-            )
-            .tag(SidebarItem.category(category.id))
-            .onDrop(of: [UTType.text.identifier, UTType.plainText.identifier, "public.text"], isTargeted: $isDropTarget) { providers in
-                guard let provider = providers.first else { return false }
-                _ = provider.loadObject(ofClass: NSString.self) { string, _ in
-                    if let string = string as? String, let uuid = UUID(uuidString: string) {
-                        DispatchQueue.main.async {
-                            moveFeed(withID: uuid, to: category)
-                        }
+
+            Text(category.name)
+                .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color.primary : Color.primary.opacity(0.9))
+                .lineLimit(1)
+
+            Spacer()
+
+            if unreadCount > 0 {
+                Text("\(unreadCount)")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(categoryColor, in: Capsule())
+            }
+
+            Button(action: onToggleCollapse) {
+                Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(isCollapsed ? "Expandir carpeta" : "Colapsar carpeta")
+        }
+        .padding(.vertical, 3)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isDropTarget ? categoryColor.opacity(0.28) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(isDropTarget ? categoryColor : Color.clear, lineWidth: 1.5)
+        )
+        .onDrop(of: [UTType.text.identifier, UTType.plainText.identifier, "public.text"], isTargeted: $isDropTarget) { providers in
+            guard let provider = providers.first else { return false }
+            _ = provider.loadObject(ofClass: NSString.self) { string, _ in
+                if let string = string as? String, let uuid = UUID(uuidString: string) {
+                    DispatchQueue.main.async {
+                        onDropFeed(uuid)
                     }
                 }
-                return true
             }
-
-            // Feeds de esta categoría (si no está colapsada)
-            if !collapsed {
-                ForEach(category.feeds.sorted(by: { $0.addedDate < $1.addedDate })) { feed in
-                    FeedRowView(feed: feed, isSelected: selection == .feed(feed.id), indented: true)
-                        .tag(SidebarItem.feed(feed.id))
-                        .contextMenu {
-                            Button {
-                                movingFeed = feed
-                            } label: {
-                                Label("Mover a carpeta…", systemImage: "folder")
-                            }
-                            Divider()
-                            Button(role: .destructive) {
-                                if selection == .feed(feed.id) { selection = .all }
-                                modelContext.delete(feed)
-                                try? modelContext.save()
-                            } label: {
-                                Label("Eliminar feed", systemImage: "trash")
-                            }
-                        }
-                }
-            }
-        }
-    }
-
-    private func moveFeed(withID id: UUID, to category: FeedCategory) {
-        let descriptor = FetchDescriptor<Feed>(predicate: #Predicate { $0.id == id })
-        if let feeds = try? modelContext.fetch(descriptor), let feed = feeds.first {
-            feed.category = category
-            try? modelContext.save()
+            return true
         }
     }
 }
