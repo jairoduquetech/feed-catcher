@@ -35,10 +35,10 @@ struct REEDERApp: App {
     @State private var modelContainer: ModelContainer = {
         let schema = Schema([Feed.self, Article.self, FeedCategory.self])
         do {
-            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .automatic)
+            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             return try ModelContainer(for: schema, configurations: config)
         } catch {
-            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .none) // Fallback if iCloud is missing
+            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             return try! ModelContainer(for: schema, configurations: config)
         }
     }()
