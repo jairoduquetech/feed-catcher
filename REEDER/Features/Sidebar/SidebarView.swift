@@ -556,6 +556,7 @@ struct CategoryHeaderRow: View {
             .buttonStyle(.plain)
             .help(isCollapsed ? "Expandir carpeta" : "Colapsar carpeta")
         }
+        .contentShape(Rectangle())
         .padding(.vertical, 3)
         .padding(.horizontal, 4)
         .background(
@@ -608,7 +609,8 @@ private struct SidebarSmartRow: View {
                     .background(iconColor, in: Capsule())
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 }
 
@@ -662,6 +664,7 @@ struct FeedRowView: View {
             }
         }
         .padding(.vertical, 3)
+        .contentShape(Rectangle())
         .onDrag {
             NSItemProvider(object: feed.id.uuidString as NSString)
         }
