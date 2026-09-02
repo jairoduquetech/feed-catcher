@@ -31,10 +31,19 @@ final class Feed {
 
     /// Detecta si es un feed de podcast
     var isPodcastFeed: Bool {
-        if url.contains("ivoox.com") || url.contains("simplecast.com") || url.contains("anchor.fm") || url.contains("megaphone.fm") || url.contains("npr.org") || url.contains("podcast") || url.contains("feed.syntax.fm") {
+        let lower = url.lowercased()
+        if lower.contains("ivoox.com") || lower.contains("simplecast.com") ||
+           lower.contains("anchor.fm") || lower.contains("megaphone.fm") ||
+           lower.contains("npr.org") || lower.contains("podcast") ||
+           lower.contains("feed.syntax.fm") {
             return true
         }
-        return articles.contains(where: { $0.isPodcastEpisode })
+        return articles.contains { article in
+            if let audio = article.audioURL, !audio.isEmpty {
+                return true
+            }
+            return false
+        }
     }
 
     /// Detecta si es un feed regular de noticias/artículos (no video ni podcast)

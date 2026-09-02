@@ -56,9 +56,18 @@ final class Article {
 
     /// Determina si este artículo es un episodio de podcast
     var isPodcastEpisode: Bool {
-        if audioURL != nil && !(audioURL?.isEmpty ?? true) { return true }
-        if let feedURL = feed?.url, feedURL.contains("ivoox.com") || feedURL.contains("simplecast.com") || feedURL.contains("anchor.fm") || feedURL.contains("megaphone.fm") || feedURL.contains("npr.org") { return true }
-        return feed?.isPodcastFeed ?? false
+        if let audio = audioURL, !audio.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+        if let feedURL = feed?.url.lowercased() {
+            if feedURL.contains("ivoox.com") || feedURL.contains("simplecast.com") ||
+               feedURL.contains("anchor.fm") || feedURL.contains("megaphone.fm") ||
+               feedURL.contains("npr.org") || feedURL.contains("podcast") ||
+               feedURL.contains("feed.syntax.fm") {
+                return true
+            }
+        }
+        return false
     }
 
     /// Determina si es un artículo de lectura regular
