@@ -7,12 +7,12 @@ import SwiftData
 
 @Model
 final class FeedCategory {
-    var id: UUID
-    var name: String
-    var icon: String          // SF Symbol name, e.g. "gamecontroller", "laptopcomputer"
-    var colorHex: String      // Hex color, e.g. "#FF6B6B"
-    var sortOrder: Int
-    var addedDate: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var icon: String = "folder.fill"          // SF Symbol name, e.g. "gamecontroller", "laptopcomputer"
+    var colorHex: String = "#888888"      // Hex color, e.g. "#FF6B6B"
+    var sortOrder: Int = 0
+    var addedDate: Date = Date()
 
     @Relationship(deleteRule: .nullify, inverse: \Feed.category)
     var feeds: [Feed]

@@ -3,12 +3,12 @@ import SwiftData
 
 @Model
 final class Feed {
-    var id: UUID
-    var title: String
-    var url: String
+    var id: UUID = UUID()
+    var title: String = ""
+    var url: String = ""
     var siteURL: String?       // The HTML website URL (from <link> in RSS)
     var faviconURL: String?    // Resolved favicon URL
-    var addedDate: Date
+    var addedDate: Date = Date()
     var category: FeedCategory?   // Carpeta a la que pertenece (nil = sin categoría)
 
     @Relationship(deleteRule: .cascade, inverse: \Article.feed)

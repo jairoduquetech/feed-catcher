@@ -3,16 +3,16 @@ import SwiftData
 
 @Model
 final class Article {
-    var id: UUID
-    var title: String
-    var articleURL: String
+    var id: UUID = UUID()
+    var title: String = ""
+    var articleURL: String = ""
     var summary: String?
     var content: String?
     var imageURL: String?       // Featured/thumbnail image from feed or podcast artwork
     var author: String?         // Author name or Podcast host
     var publishDate: Date?
-    var isRead: Bool
-    var isFavorite: Bool
+    var isRead: Bool = false
+    var isFavorite: Bool = false
     var audioURL: String?       // Podcast MP3/M4A streaming URL
     var duration: String?       // e.g. "45:12" or "1:12:00"
     var feed: Feed?
