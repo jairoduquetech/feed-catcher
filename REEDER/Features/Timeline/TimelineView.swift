@@ -59,7 +59,7 @@ struct TimelineView: View {
     }
 
     private var unreadCountText: String {
-        let count = articles.filter { !$0.isRead }.count
+        let count = articles.reduce(0) { $0 + ($1.isRead ? 0 : 1) }
         if count == 0 {
             return "Estás al día"
         } else if count == 1 {

@@ -115,6 +115,29 @@ final class FeedRefreshService {
                     context.insert(article)
                 }
             }
+
+            // Cleanup: mantener el tamaño de la base de datos bajo control
+            // Eliminar artículos leídos, no favoritos, y que tengan más de 30 días
+            let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+            let oldArticles = feed.articles.filter { article in
+                article.isRead && !article.isFavorite && (article.publishDate ?? article.feed?.addedDate ?? Date()) < thirtyDaysAgo
+            }
+            
+            for old in oldArticles {
+                context.delete(old)
+            }
+            
+            // Si el feed aún tiene muchísimos artículos (ej. más de 200), borrar los más viejos no leídos también
+            if feed.articles.count > 300 {
+                let excess = feed.articles
+                    .filter { !$0.isFavorite }
+                    .sorted { ($0.publishDate ?? Date.distantPast) > ($1.publishDate ?? Date.distantPast) }
+                    .dropFirst(300)
+                
+                for old in excess {
+                    context.delete(old)
+                }
+            }
             if feed.title == feed.url || feed.title.isEmpty { feed.title = parsed.title }
             if feed.siteURL == nil { feed.siteURL = parsed.siteURL }
             if feed.faviconURL == nil { feed.faviconURL = parsed.faviconURL }

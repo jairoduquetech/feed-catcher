@@ -74,19 +74,19 @@ struct SidebarView: View {
 
     private var totalArticlesUnreadCount: Int {
         regularFeeds.reduce(0) { sum, feed in
-            sum + feed.articles.filter { !$0.isRead }.count
+            sum + feed.articles.reduce(0) { $0 + ($1.isRead ? 0 : 1) }
         }
     }
 
     private var totalYouTubeUnreadCount: Int {
         youtubeFeeds.reduce(0) { sum, feed in
-            sum + feed.articles.filter { !$0.isRead }.count
+            sum + feed.articles.reduce(0) { $0 + ($1.isRead ? 0 : 1) }
         }
     }
 
     private var totalPodcastsUnreadCount: Int {
         podcastFeeds.reduce(0) { sum, feed in
-            sum + feed.articles.filter { !$0.isRead }.count
+            sum + feed.articles.reduce(0) { $0 + ($1.isRead ? 0 : 1) }
         }
     }
 
@@ -511,7 +511,7 @@ struct CategoryHeaderRow: View {
 
     private var unreadCount: Int {
         category.feeds.filter { $0.isRegularArticleFeed }.reduce(0) { sum, feed in
-            sum + feed.articles.filter { !$0.isRead }.count
+            sum + feed.articles.reduce(0) { $0 + ($1.isRead ? 0 : 1) }
         }
     }
 
@@ -627,7 +627,7 @@ struct FeedRowView: View {
     }
 
     var unreadCount: Int {
-        feed.articles.filter { !$0.isRead }.count
+        feed.articles.reduce(0) { $0 + ($1.isRead ? 0 : 1) }
     }
 
     var body: some View {
