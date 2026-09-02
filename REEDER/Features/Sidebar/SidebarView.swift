@@ -116,7 +116,7 @@ struct SidebarView: View {
                     // 2. Feeds dentro de la carpeta (solo regulares de lectura)
                     if !collapsedCategories.contains(category.id) {
                         ForEach(category.feeds.filter { $0.isRegularArticleFeed }.sorted(by: { $0.addedDate < $1.addedDate })) { feed in
-                            FeedRowView(feed: feed, isSelected: selection == .feed(feed.id), indented: true)
+                            FeedRowView(feed: feed, selection: $selection, indented: true)
                                 .tag(SidebarItem.feed(feed.id))
                                 .contextMenu { feedContextMenu(for: feed) }
                         }
@@ -146,7 +146,7 @@ struct SidebarView: View {
         let label = categories.isEmpty ? "FEEDS DE NOTICIAS" : "SIN CARPETA"
         Section {
             ForEach(regularFeedsWithoutCategory) { feed in
-                FeedRowView(feed: feed, isSelected: selection == .feed(feed.id))
+                FeedRowView(feed: feed, selection: $selection)
                     .tag(SidebarItem.feed(feed.id))
                     .contextMenu { feedContextMenu(for: feed) }
             }
@@ -182,7 +182,7 @@ struct SidebarView: View {
 
             // Canales de YouTube individuales
             ForEach(youtubeFeeds) { feed in
-                FeedRowView(feed: feed, isSelected: selection == .feed(feed.id))
+                FeedRowView(feed: feed, selection: $selection)
                     .tag(SidebarItem.feed(feed.id))
                     .contextMenu { feedContextMenu(for: feed) }
             }
@@ -215,7 +215,7 @@ struct SidebarView: View {
 
             // Podcasts seguidos individuales
             ForEach(podcastFeeds) { feed in
-                FeedRowView(feed: feed, isSelected: selection == .feed(feed.id))
+                FeedRowView(feed: feed, selection: $selection)
                     .tag(SidebarItem.feed(feed.id))
                     .contextMenu { feedContextMenu(for: feed) }
             }
@@ -619,14 +619,32 @@ private struct SidebarSmartRow: View {
 // ──────────────────────────────────────────────────────────────────────────────
 struct FeedRowView: View {
     let feed: Feed
-    var isSelected: Bool = false
+    @Binding var selection: SidebarItem
     var indented: Bool = false
+
+    var isSelected: Bool {
+        selection == .feed(feed.id)
+    }
 
     var unreadCount: Int {
         feed.articles.filter { !$0.isRead }.count
     }
 
     var body: some View {
+        Group {
+            if feed.isRegularArticleFeed {
+                rowContent
+                    .onDrag { NSItemProvider(object: feed.id.uuidString as NSString) }
+            } else {
+                rowContent
+            }
+        }
+        .onTapGesture {
+            selection = .feed(feed.id)
+        }
+    }
+
+    private var rowContent: some View {
         HStack(spacing: 8) {
             if indented {
                 Spacer().frame(width: 14)
@@ -665,8 +683,5 @@ struct FeedRowView: View {
         }
         .padding(.vertical, 3)
         .contentShape(Rectangle())
-        .onDrag {
-            NSItemProvider(object: feed.id.uuidString as NSString)
-        }
     }
 }
