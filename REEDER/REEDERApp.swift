@@ -1,13 +1,46 @@
 import SwiftUI
 import SwiftData
+import AppKit
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            NSApp.activate(ignoringOtherApps: true)
+            for window in NSApp.windows {
+                window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()
+            }
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        sender.setActivationPolicy(.regular)
+        if !flag {
+            for window in sender.windows {
+                window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()
+            }
+        }
+        sender.activate(ignoringOtherApps: true)
+        return true
+    }
+}
 
 @main
 struct REEDERApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     @State private var modelContainer: ModelContainer = {
         let schema = Schema([Feed.self, Article.self, FeedCategory.self])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-        return try! ModelContainer(for: schema, configurations: config)
+        do {
+            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+            return try ModelContainer(for: schema, configurations: config)
+        } catch {
+            let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+            return try! ModelContainer(for: schema, configurations: config)
+        }
     }()
 
     var body: some Scene {
@@ -16,9 +49,11 @@ struct REEDERApp: App {
             ContentView()
                 .frame(minWidth: 920, minHeight: 620)
                 .onAppear {
+                    NSApp.activate(ignoringOtherApps: true)
                     startBackgroundRefresh()
                 }
         }
+        .defaultSize(width: 1100, height: 720)
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified)
         .modelContainer(modelContainer)
