@@ -90,14 +90,28 @@ struct SuggestedPodcast: Identifiable {
     let feedURL: String
     let artworkURL: String?
 
+    /// Mapeo de URLs antiguas de podcasts que fueron discontinuadas o cambiaron de hosting
+    static let legacyBadURLsMap: [String: String] = [
+        "https://www.ivoox.com/the-wild-project_fg_f1883587_filtro_1.xml": "https://anchor.fm/s/115a4336c/podcast/rss",
+        "https://anchor.fm/s/b84bb88/podcast/rss": "https://feeds.simplecast.com/xE9e0As4",
+        "https://www.ivoox.com/aprendemos-juntos-2030-audio_fg_f11656004_filtro_1.xml": "https://rss.libsyn.com/shows/109232/destinations/631374.xml",
+        "https://anchor.fm/s/1e88cf8c/podcast/rss": "https://anchor.fm/s/e80ff06c/podcast/rss"
+    ]
+
+    /// Corrige automáticamente una URL de podcast si corresponde a una rota conocida
+    static func correctURL(for urlString: String) -> String? {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        return legacyBadURLsMap[trimmed]
+    }
+
     static let popular: [SuggestedPodcast] = [
         SuggestedPodcast(
             id: "wildproject",
             title: "The Wild Project",
             host: "Jordi Wild",
             category: "Entrevistas & Charlas",
-            feedURL: "https://www.ivoox.com/the-wild-project_fg_f1883587_filtro_1.xml",
-            artworkURL: "https://static-1.ivoox.com/canales/8/8/3/5/1883587_XXL.jpg"
+            feedURL: "https://anchor.fm/s/115a4336c/podcast/rss",
+            artworkURL: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts126/v4/f9/d1/5f/f9d15fa3-7cf2-110e-647d-c7966f292cff/mza_3972999760339797846.jpg/600x600bb.jpg"
         ),
         SuggestedPodcast(
             id: "radioambulante",
@@ -128,24 +142,24 @@ struct SuggestedPodcast: Identifiable {
             title: "La Cotorrisa",
             host: "Ricardo Pérez y Slobotzky",
             category: "Comedia",
-            feedURL: "https://anchor.fm/s/b84bb88/podcast/rss",
-            artworkURL: nil
+            feedURL: "https://feeds.simplecast.com/xE9e0As4",
+            artworkURL: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/60/ec/9a/60ec9a66-b29d-ab08-f257-be1a69ba4cc5/mza_14695168599780731050.jpeg/600x600bb.jpg"
         ),
         SuggestedPodcast(
             id: "bbva_aprendemos",
             title: "Aprendemos Juntos 2030",
             host: "BBVA",
             category: "Educación & Sociedad",
-            feedURL: "https://www.ivoox.com/aprendemos-juntos-2030-audio_fg_f11656004_filtro_1.xml",
-            artworkURL: nil
+            feedURL: "https://rss.libsyn.com/shows/109232/destinations/631374.xml",
+            artworkURL: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts211/v4/ef/fb/e9/effbe942-6e4b-804c-aea8-5e35f620165f/mza_10970221328492062838.jpg/600x600bb.jpg"
         ),
         SuggestedPodcast(
             id: "platzi_podcast",
             title: "Platzi Podcast",
             host: "Freddy Vega & Platzi",
             category: "Tecnología & Startups",
-            feedURL: "https://anchor.fm/s/1e88cf8c/podcast/rss",
-            artworkURL: nil
+            feedURL: "https://anchor.fm/s/e80ff06c/podcast/rss",
+            artworkURL: "https://is1-ssl.mzstatic.com/image/thumb/Podcasts116/v4/9f/bd/e5/9fbde556-08e4-6c9d-7ed8-01e4364d7907/mza_4715463929810317488.jpg/600x600bb.jpg"
         ),
         SuggestedPodcast(
             id: "syntaxfm",

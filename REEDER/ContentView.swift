@@ -9,6 +9,8 @@ struct ContentView: View {
     @State private var sidebarSelection: SidebarItem = .all
     @State private var selectedArticle: Article? = nil
     @State private var showAddFeed = false
+    @Environment(\.modelContext) private var modelContext
+    @Query private var feeds: [Feed]
     @State private var settings = AppSettings.shared
 
     var body: some View {
@@ -32,6 +34,21 @@ struct ContentView: View {
             MiniPlayerView()
         }
         .preferredColorScheme(settings.colorScheme.swiftUIScheme)
+        .onAppear {
+            repairBrokenFeeds()
+        }
+    }
+
+    private func repairBrokenFeeds() {
+        var didModify = false
+        for feed in feeds {
+            if feed.autoRepairURLIfNeeded() {
+                didModify = true
+            }
+        }
+        if didModify {
+            try? modelContext.save()
+        }
     }
 }
 

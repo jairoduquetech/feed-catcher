@@ -61,4 +61,24 @@ final class Feed {
         guard let host = URL(string: base)?.host else { return nil }
         return "https://icons.duckduckgo.com/ip3/\(host).ico"
     }
+
+    /// Intenta corregir automáticamente la URL si es un feed conocido que tenía un enlace roto
+    @discardableResult
+    func autoRepairURLIfNeeded() -> Bool {
+        if let fixedYouTube = SuggestedYouTubeChannel.correctURL(for: url) {
+            url = fixedYouTube
+            return true
+        }
+        if let fixedPodcast = SuggestedPodcast.correctURL(for: url) {
+            url = fixedPodcast
+            return true
+        }
+        if isYouTubeFeed, let known = SuggestedYouTubeChannel.findChannel(named: title) {
+            if url != known.rssURL {
+                url = known.rssURL
+                return true
+            }
+        }
+        return false
+    }
 }

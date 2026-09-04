@@ -320,8 +320,22 @@ struct TimelineView: View {
         var lastError: String? = nil
 
         for feed in feedsToRefresh {
+            feed.autoRepairURLIfNeeded()
+
             do {
-                let parsed = try await RSSService.shared.fetchFeed(urlString: feed.url)
+                var parsedFeed: ParsedFeed
+                do {
+                    parsedFeed = try await RSSService.shared.fetchFeed(urlString: feed.url)
+                } catch {
+                    // Si falló con error HTTP o similar y podemos autoreparar la URL
+                    if feed.autoRepairURLIfNeeded() {
+                        parsedFeed = try await RSSService.shared.fetchFeed(urlString: feed.url)
+                    } else {
+                        throw error
+                    }
+                }
+
+                let parsed = parsedFeed
                 let existingArticlesByUrl = Dictionary(grouping: feed.articles, by: \.articleURL)
                     .compactMapValues(\.first)
 
@@ -339,6 +353,12 @@ struct TimelineView: View {
                         if existing.summary == nil && item.summary != nil {
                             existing.summary = item.summary
                         }
+                        if existing.audioURL == nil && item.audioURL != nil {
+                            existing.audioURL = item.audioURL
+                        }
+                        if existing.duration == nil && item.duration != nil {
+                            existing.duration = item.duration
+                        }
                     } else {
                         let article = Article(
                             title: item.title,
@@ -348,6 +368,8 @@ struct TimelineView: View {
                             imageURL: item.imageURL,
                             author: item.author,
                             publishDate: item.publishDate,
+                            audioURL: item.audioURL,
+                            duration: item.duration,
                             feed: feed
                         )
                         modelContext.insert(article)

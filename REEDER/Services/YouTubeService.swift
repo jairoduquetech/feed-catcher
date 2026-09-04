@@ -62,7 +62,15 @@ actor YouTubeService {
 
         // 1. Si ya es una URL de feed RSS de YouTube
         if trimmed.contains("youtube.com/feeds/videos.xml") {
+            if let corrected = SuggestedYouTubeChannel.correctURL(for: trimmed) {
+                return corrected
+            }
             return trimmed
+        }
+
+        // 1.1 Si coincide con un canal popular conocido
+        if let known = SuggestedYouTubeChannel.findChannel(named: trimmed) {
+            return known.rssURL
         }
 
         // 2. Si es una URL con channel_id directo: youtube.com/channel/UC...
@@ -182,14 +190,45 @@ struct SuggestedYouTubeChannel: Identifiable {
         "https://www.youtube.com/feeds/videos.xml?channel_id=\(channelID)"
     }
 
+    /// Mapeo de IDs anteriores erróneos a los IDs oficiales y vigentes de YouTube
+    static let legacyBadIDsMap: [String: String] = [
+        "UCBJycsmduP4tOGTO55xgo1w": "UCBJycsmduvYEL83R_U4JriQ", // Marques Brownlee
+        "UCwB1xJzsPeH9QJ8YlEPe1jw": "UCutHHoZ4kzZFM2LCiZR_dVA", // En Pocas Palabras
+        "UCrBZrh8qP_2yoxnpB_qK7bg": "UC36xmz34q02JYaZYKrMwXng", // Nate Gentile
+        "UCE_M837H83WVDUm5t5I0iCw": "UCE_M8A5yxnLfW0KghEeajjw", // Apple
+        "UC55-mxUj5Nj3niXFReG449A": "UC55-mxUj5Nj3niXFReG44OQ", // Platzi
+    ]
+
+    /// Corrige automáticamente una URL de feed de YouTube si tiene un ID desactualizado o erróneo
+    static func correctURL(for urlString: String) -> String? {
+        for (badID, goodID) in legacyBadIDsMap {
+            if urlString.contains(badID) {
+                return urlString.replacingOccurrences(of: badID, with: goodID)
+            }
+        }
+        return nil
+    }
+
+    /// Busca un canal sugerido por nombre o handle aproximado
+    static func findChannel(named query: String) -> SuggestedYouTubeChannel? {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return nil }
+        return popular.first { channel in
+            channel.name.lowercased() == q ||
+            channel.handle.lowercased() == q ||
+            channel.handle.lowercased().replacingOccurrences(of: "@", with: "") == q ||
+            q.contains(channel.name.lowercased())
+        }
+    }
+
     static let popular: [SuggestedYouTubeChannel] = [
         SuggestedYouTubeChannel(
             id: "mkbhd",
             name: "Marques Brownlee",
             handle: "@mkbhd",
             category: "Tecnología",
-            channelID: "UCBJycsmduP4tOGTO55xgo1w",
-            avatarURL: "https://yt3.googleusercontent.com/lkH37D712tiyphnu0Id0D5MwwQ7IRuwgQLVD05iMXlDWO-kDHqqd8EM5Cs29cGgg–t9GJwV5g=s176-c-k-c0x00ffffff-no-rj"
+            channelID: "UCBJycsmduvYEL83R_U4JriQ",
+            avatarURL: "https://yt3.googleusercontent.com/lkH37D712tiyphnu0Id0D5MwwQ7IRuwgQLVD05iMXlDWO-kDHqqd8EM5Cs29cGgg-t9GJwV5g=s176-c-k-c0x00ffffff-no-rj"
         ),
         SuggestedYouTubeChannel(
             id: "midudev",
@@ -212,7 +251,7 @@ struct SuggestedYouTubeChannel: Identifiable {
             name: "En Pocas Palabras",
             handle: "@EnPocasPalabras",
             category: "Ciencia",
-            channelID: "UCwB1xJzsPeH9QJ8YlEPe1jw",
+            channelID: "UCutHHoZ4kzZFM2LCiZR_dVA",
             avatarURL: "https://yt3.googleusercontent.com/ytc/AIdro_n8-7=s176-c-k-c0x00ffffff-no-rj"
         ),
         SuggestedYouTubeChannel(
@@ -228,7 +267,7 @@ struct SuggestedYouTubeChannel: Identifiable {
             name: "Nate Gentile",
             handle: "@NateGentile7",
             category: "Hardware",
-            channelID: "UCrBZrh8qP_2yoxnpB_qK7bg",
+            channelID: "UC36xmz34q02JYaZYKrMwXng",
             avatarURL: nil
         ),
         SuggestedYouTubeChannel(
@@ -236,7 +275,7 @@ struct SuggestedYouTubeChannel: Identifiable {
             name: "Apple",
             handle: "@Apple",
             category: "Tecnología",
-            channelID: "UCE_M837H83WVDUm5t5I0iCw",
+            channelID: "UCE_M8A5yxnLfW0KghEeajjw",
             avatarURL: nil
         ),
         SuggestedYouTubeChannel(
@@ -244,7 +283,7 @@ struct SuggestedYouTubeChannel: Identifiable {
             name: "Platzi",
             handle: "@platzi",
             category: "Educación",
-            channelID: "UC55-mxUj5Nj3niXFReG449A",
+            channelID: "UC55-mxUj5Nj3niXFReG44OQ",
             avatarURL: nil
         )
     ]

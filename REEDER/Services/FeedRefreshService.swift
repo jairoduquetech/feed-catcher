@@ -73,7 +73,21 @@ final class FeedRefreshService {
     }
 
     private func refreshFeed(_ feed: Feed, context: ModelContext) async {
-        guard let parsed = try? await RSSService.shared.fetchFeed(urlString: feed.url) else { return }
+        await MainActor.run {
+            feed.autoRepairURLIfNeeded()
+        }
+
+        var parsedResult = try? await RSSService.shared.fetchFeed(urlString: feed.url)
+        if parsedResult == nil {
+            let didRepair = await MainActor.run {
+                feed.autoRepairURLIfNeeded()
+            }
+            if didRepair {
+                parsedResult = try? await RSSService.shared.fetchFeed(urlString: feed.url)
+            }
+        }
+
+        guard let parsed = parsedResult else { return }
 
         await MainActor.run {
             let existingArticlesByUrl = Dictionary(grouping: feed.articles, by: \.articleURL)

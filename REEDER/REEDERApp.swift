@@ -64,7 +64,7 @@ struct REEDERApp: App {
                     NSApplication.shared.orderFrontStandardAboutPanel(
                         options: [
                             NSApplication.AboutPanelOptionKey.applicationName: "Feed Catcher",
-                            NSApplication.AboutPanelOptionKey.version: "1.6"
+                            NSApplication.AboutPanelOptionKey.version: "1.7"
                         ]
                     )
                 }
